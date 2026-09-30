@@ -1,0 +1,275 @@
+hpc4ai/
+├── .github/
+│   └── workflows/
+│       ├── build.yml
+│       └── deploy.yml
+├── .vscode/
+│   ├── extensions.json
+│   ├── settings.json
+│   └── tasks.json
+├── assets/
+│   ├── css/
+│   │   └── custom.css
+│   ├── figures/
+│   │   └── .gitkeep
+│   └── images/
+│       └── .gitkeep
+├── config/
+│   ├── cluster.example.env
+│   └── README.md
+├── content/
+│   ├── lectures/
+│   │   ├── lecture01/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   ├── exercise01-workspace.md
+│   │   │   │   ├── exercise02-git-sync.md
+│   │   │   │   ├── exercise03-wilson-session.md
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture02/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture03/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture04/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture05/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture06/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture07/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture08/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture09/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture10/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture11/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   ├── lecture12/
+│   │   │   ├── code/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── data/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── exercises/
+│   │   │   │   └── index.md
+│   │   │   ├── figures/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── notebooks/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── examples.md
+│   │   │   ├── index.md
+│   │   │   └── theory.md
+│   │   └── lecture13/
+│   │       ├── code/
+│   │       │   └── .gitkeep
+│   │       ├── data/
+│   │       │   └── .gitkeep
+│   │       ├── exercises/
+│   │       │   └── index.md
+│   │       ├── figures/
+│   │       │   └── .gitkeep
+│   │       ├── notebooks/
+│   │       │   └── .gitkeep
+│   │       ├── examples.md
+│   │       ├── index.md
+│   │       └── theory.md
+│   ├── preface/
+│   │   ├── how-to-use-this-book.md
+│   │   ├── introduction.md
+│   │   └── prerequisites.md
+│   ├── reference/
+│   │   ├── compilation.md
+│   │   ├── git.md
+│   │   ├── linux.md
+│   │   ├── lmod.md
+│   │   ├── mpi.md
+│   │   ├── openmp.md
+│   │   ├── python.md
+│   │   └── troubleshooting.md
+│   ├── workflow/
+│   │   ├── command-reference.md
+│   │   ├── git-sync-playbook.md
+│   │   ├── lab-client-wilson.md
+│   │   ├── overview.md
+│   │   ├── project-layout.md
+│   │   └── vscode-git-github.md
+│   └── index.md
+├── results/
+│   ├── .gitkeep
+│   └── README.md
+├── scripts/
+│   ├── cluster/
+│   │   └── README.md
+│   ├── utilities/
+│   │   └── README.md
+│   ├── build.sh
+│   ├── check.sh
+│   ├── clean.sh
+│   ├── preview.sh
+│   └── setup-env.sh
+├── shared/
+│   ├── code/
+│   │   └── .gitkeep
+│   ├── data/
+│   │   └── .gitkeep
+│   ├── figures/
+│   │   └── .gitkeep
+│   └── README.md
+├── templates/
+│   ├── lecture-template/
+│   │   ├── code/
+│   │   │   └── .gitkeep
+│   │   ├── data/
+│   │   │   └── .gitkeep
+│   │   ├── exercises/
+│   │   │   └── index.md
+│   │   ├── figures/
+│   │   │   └── .gitkeep
+│   │   ├── notebooks/
+│   │   │   └── .gitkeep
+│   │   ├── examples.md
+│   │   ├── index.md
+│   │   ├── README.md
+│   │   └── theory.md
+│   ├── exercise-template.md
+│   └── notebook-template.ipynb
+├── .editorconfig
+├── .gitattributes
+├── .gitignore
+├── .python-version
+├── environment.yml
+├── myst.yml
+├── README.md
+├── requirements.txt
+└── toc.yml

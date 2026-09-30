@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Environment: Setup / update",
+      "type": "shell",
+      "command": "./scripts/setup-env.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "Book: Preview",
+      "type": "shell",
+      "command": "./scripts/preview.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Book: Build (strict)",
+      "type": "shell",
+      "command": "./scripts/build.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "Book: Check",
+      "type": "shell",
+      "command": "./scripts/check.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "Book: Clean",
+      "type": "shell",
+      "command": "./scripts/clean.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: Status",
+      "type": "shell",
+      "command": "git status",
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: Pull (ff-only)",
+      "type": "shell",
+      "command": "git pull --ff-only",
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: Push",
+      "type": "shell",
+      "command": "git push",
+      "problemMatcher": []
+    },
+    {
+      "label": "WILSON: SSH from lab client",
+      "type": "shell",
+      "command": "ssh fbellina2@wilson.mib.infn.it",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

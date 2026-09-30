@@ -1,0 +1,29 @@
+version: 1
+extends:
+  - toc.yml
+
+project:
+  title: High-Performance Computing for AI Applications in Physics
+  description: Personal notes, exercises and computational material for HPC and AI in physics.
+  keywords:
+    - high-performance computing
+    - HPC
+    - artificial intelligence
+    - physics
+    - MPI
+    - OpenMP
+  authors: []
+  github: francescobellina/hpc4ai
+  exclude:
+    - README.md
+    - templates/**
+    - scripts/**
+    - results/**
+    - config/**
+
+site:
+  template: book-theme
+  title: High-Performance Computing for AI Applications in Physics
+  options:
+    folders: true
+    style: ./assets/css/custom.css

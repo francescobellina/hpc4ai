@@ -1,0 +1,5 @@
+/* Minimal site-wide styling. Keep overrides small for easy theme upgrades. */
+html { scroll-behavior: smooth; }
+article { line-height: 1.65; }
+code { font-size: 0.94em; }
+table { max-width: 100%; }

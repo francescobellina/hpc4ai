@@ -1,0 +1,70 @@
+version: 1
+project:
+  toc:
+  - file: content/index.md
+    title: Home
+  - title: Preface
+    children:
+    - file: content/preface/introduction.md
+    - file: content/preface/prerequisites.md
+    - file: content/preface/how-to-use-this-book.md
+  - title: Workflow
+    children:
+    - file: content/workflow/overview.md
+    - file: content/workflow/project-layout.md
+    - file: content/workflow/vscode-git-github.md
+    - file: content/workflow/lab-client-wilson.md
+    - file: content/workflow/git-sync-playbook.md
+    - file: content/workflow/command-reference.md
+  - title: Lectures
+    children:
+    - file: content/lectures/lecture01/index.md
+      title: 1. From the client to WILSON
+      children:
+      - file: content/lectures/lecture01/theory.md
+        title: Theory
+      - file: content/lectures/lecture01/examples.md
+        title: Examples
+      - file: content/lectures/lecture01/exercises/index.md
+        title: Exercises
+        children:
+        - file: content/lectures/lecture01/exercises/exercise01-workspace.md
+          title: 1.1 Course local workspace
+        - file: content/lectures/lecture01/exercises/exercise02-git-sync.md
+          title: 1.2 Git synchronization
+        - file: content/lectures/lecture01/exercises/exercise03-wilson-session.md
+          title: 1.3 Transfer and WILSON session
+    - file: content/lectures/lecture02/index.md
+      title: 2. To be defined
+    - file: content/lectures/lecture03/index.md
+      title: 3. To be defined
+    - file: content/lectures/lecture04/index.md
+      title: 4. To be defined
+    - file: content/lectures/lecture05/index.md
+      title: 5. To be defined
+    - file: content/lectures/lecture06/index.md
+      title: 6. To be defined
+    - file: content/lectures/lecture07/index.md
+      title: 7. To be defined
+    - file: content/lectures/lecture08/index.md
+      title: 8. To be defined
+    - file: content/lectures/lecture09/index.md
+      title: 9. To be defined
+    - file: content/lectures/lecture10/index.md
+      title: 10. To be defined
+    - file: content/lectures/lecture11/index.md
+      title: 11. To be defined
+    - file: content/lectures/lecture12/index.md
+      title: 12. To be defined
+    - file: content/lectures/lecture13/index.md
+      title: 13. To be defined
+  - title: Reference
+    children:
+    - file: content/reference/linux.md
+    - file: content/reference/git.md
+    - file: content/reference/python.md
+    - file: content/reference/compilation.md
+    - file: content/reference/openmp.md
+    - file: content/reference/mpi.md
+    - file: content/reference/lmod.md
+    - file: content/reference/troubleshooting.md

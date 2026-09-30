@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Jupyter Book / MyST generated content
+_build/
+.myst/
+
+# Editors / temporary files
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Local cluster configuration / secrets
+config/cluster.env
+.env
+.env.*
+!.env.example
+
+# Raw or machine-generated results
+results/**/raw/
+results/**/tmp/
+
+# Compiled binaries / objects
+*.o
+*.so
+*.dylib
+*.out
+*.exe
