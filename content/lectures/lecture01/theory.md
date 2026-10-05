@@ -1,5 +1,10 @@
-# Theory — client, repository, and cluster
+# Theory — TEORIA DI BASE e poi client, repository, and cluster
 
+Prime due slides sui concetti di base di HPC e nozioni storiche.
+Da tenere a mente:
+
+
+Si passa poi a parlare di WILSON, con i comandi di base, salvataggio di programmi, righe di comando, e gestione dei file.
 ## Three different roles
 
 A practical HPC workflow often separates:

@@ -1,5 +1,7 @@
 # Lecture 1 — From the client to WILSON
+-prima parte: slides sui concetti di base di HPC e nozioni storiche, da tenere a mente.
 
+Dopodiche:
 This lecture establishes the operational workflow used throughout the course.
 The emphasis is on knowing **where** code is edited, synchronized, transferred,
 and executed.

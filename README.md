@@ -1,5 +1,9 @@
 # High-Performance Computing for AI Applications in Physics
 
+```text
+uv run --python .venv/bin/python jupyter book start
+```
+
 Personal course repository and Jupyter Book for MSc/PhD-level notes, examples,
 exercises, notebooks, and HPC experiments.
 
