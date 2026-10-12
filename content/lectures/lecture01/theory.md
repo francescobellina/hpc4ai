@@ -1,32 +1,35 @@
-# Theory — TEORIA DI BASE e poi client, repository, and cluster
+# Teoria — Dal client a WILSON
 
-Prime due slides sui concetti di base di HPC e nozioni storiche.
-Da tenere a mente:
+Prima parte: concetti di base di HPC e nozioni storiche, da tenere a mente. Poi
+WILSON: comandi di base, salvataggio dei programmi, riga di comando, gestione file.
 
+Un workflow HPC separa tre ruoli: l'**ambiente di sviluppo** (dove si scrivono
+codice e note), il **controllo di versione** (dove la storia è sincronizzata) e
+l'**ambiente di esecuzione** (dove girano i calcoli). In questo progetto sono
+VS Code, GitHub e WILSON. Un repository utile risponde a: quale sorgente ha
+prodotto il risultato, con quali input, con quale ambiente software, su quale
+sistema.
 
-Si passa poi a parlare di WILSON, con i comandi di base, salvataggio di programmi, righe di comando, e gestione dei file.
-## Three different roles
+## Client e WILSON
 
-A practical HPC workflow often separates:
+Il client è un Raspberry Pi 5 con account locale `student` condiviso tra corsi: non
+è privato e non è salvato, trattalo come spazio temporaneo. WILSON è un cluster
+(un nodo principale + fino a 32 nodi di calcolo) con home personale persistente:
 
-- **development environment**: where code and notes are edited;
-- **version-control service**: where history is synchronized and preserved;
-- **execution environment**: where computational workloads run.
+```bash
+ssh -l fbellina2 wilson.mib.infn.it
+```
 
-In this project those roles are represented by VS Code on the Mac or lab PC,
-GitHub, and WILSON respectively.
+Il client offre desktop e strumenti locali; WILSON storage persistente, software
+gestito e accesso ai nodi di calcolo.
 
-## Reproducibility
+## Moduli d'ambiente
 
-A useful HPC repository should make it possible to answer:
+Lmod cambia l'ambiente software attivo modificando le variabili di shell. I moduli
+esatti dipendono dal sistema: documentali solo dopo conferma. Vedi il
+[Riferimento Lmod](../../reference/lmod.md).
 
-1. Which source code produced a result?
-2. Which input data and parameters were used?
-3. Which software environment was loaded?
-4. On which environment was the command executed?
-
-## Environment modules
-
-Lmod changes the active software environment by modifying shell environment
-variables. Exact modules are system-specific and should only be documented after
-confirmation.
+```text
+Mac <-> GitHub <-> PC di laboratorio     controllo di versione / sincronizzazione
+client di laboratorio <-> WILSON         ssh/scp + esecuzione HPC
+```

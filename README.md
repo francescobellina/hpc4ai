@@ -13,7 +13,7 @@ laboratory client when an exercise requires cluster resources.
 
 ```text
 VS Code on Mac                      GitHub                       VS Code on lab PC
-/Users/francesco/Desktop/hpc4ai  <->  francescobellina/hpc4ai  <->  local clone
+/Users/francesco/dev/hpc4ai  <->  francescobellina/hpc4ai  <->  local clone
                                                                       |
                                                                       | ssh / scp
                                                                       v
@@ -30,13 +30,13 @@ Course exercise used as the reference for the WILSON warm-up workflow:
 The project location on the Mac is fixed to:
 
 ```text
-/Users/francesco/Desktop/hpc4ai
+/Users/francesco/dev/hpc4ai
 ```
 
 Open it from Terminal with:
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 code .
 ```
 
@@ -45,7 +45,7 @@ code .
 If the directory has just been extracted and Git has not yet been initialized:
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 git init
 git branch -M main
 git add .
@@ -66,7 +66,7 @@ git remote set-url origin https://github.com/francescobellina/hpc4ai.git
 First-time setup:
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 uv venv --python 3.12
 uv pip install --python .venv/bin/python -r requirements.txt
 ```
@@ -74,7 +74,7 @@ uv pip install --python .venv/bin/python -r requirements.txt
 Start the live Jupyter Book preview:
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 uv run --python .venv/bin/python jupyter book start
 ```
 
@@ -129,7 +129,7 @@ git push
 When you return to the Mac:
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 git status
 git pull --ff-only
 ```

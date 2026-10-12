@@ -1,17 +1,17 @@
-# Exercise 1.1 — Create the local course workspace
+# Esercizio 1.1 — Creare il workspace locale del corso
 
-## Objective
+## Obiettivo
 
-Reproduce the first step of the course warm-up and create a local workspace that
-is clearly associated with the WILSON username `fbellina2`.
+Riprodurre il primo passo del warm-up del corso e creare un workspace locale
+chiaramente associato all'username WILSON `fbellina2`.
 
-## Run on
+## Dove eseguire
 
-**Lab client** (the local machine used in the laboratory), not WILSON.
+**Client di laboratorio** (la macchina locale del laboratorio), non WILSON.
 
-## Procedure
+## Procedura
 
-For the first creation of the workspace, run:
+Per la prima creazione del workspace, esegui:
 
 ```bash
 cd
@@ -24,24 +24,24 @@ cd hpc-lab-exercise
 pwd
 ```
 
-The first `pwd` shows the local home directory. The last `pwd` should point to a
-path ending in:
+Il primo `pwd` mostra la home locale. L'ultimo `pwd` deve puntare a un path che
+termina con:
 
 ```text
 fbellina2/hpc-lab-exercise
 ```
 
-## Questions
+## Domande
 
-- Why is the directory named after the WILSON username?
-- Why should the lab-client workspace not be confused with the remote WILSON home?
-- What does `$HOME` contain before and after changing directories?
+- Perché la directory prende il nome dell'account WILSON?
+- Perché il workspace del client non va confuso con la home remota di WILSON?
+- Cosa contiene `$HOME` prima e dopo il cambio di directory?
 
-::::{dropdown} Solution / expected checks
+:::{dropdown} Soluzione / verifiche attese
 :color: success
 
-The workspace exists on the lab client under a directory named `fbellina2`, and
-the shell is inside `hpc-lab-exercise`. `$HOME` continues to refer to the local
-account's home directory even after `cd` changes the current working directory.
+Il workspace esiste sul client sotto una directory chiamata `fbellina2` e la shell
+è dentro `hpc-lab-exercise`. `$HOME` continua a puntare alla home dell'account
+locale anche dopo che `cd` ha cambiato la directory di lavoro corrente.
 
-::::
+:::

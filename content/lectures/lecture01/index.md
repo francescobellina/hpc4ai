@@ -1,52 +1,52 @@
-# Lecture 1 — From the client to WILSON
--prima parte: slides sui concetti di base di HPC e nozioni storiche, da tenere a mente.
+# Lezione 1 — Dal client a WILSON
 
-Dopodiche:
-This lecture establishes the operational workflow used throughout the course.
-The emphasis is on knowing **where** code is edited, synchronized, transferred,
-and executed.
+Prima parte: concetti di base di HPC e nozioni storiche, da tenere a mente.
 
-It follows the structure of the course warm-up exercise *From the client to
-WILSON*, while integrating the personal GitHub/VS Code workflow used by this
-repository.
+Questa lezione fissa il flusso operativo usato per tutto il corso. L'attenzione è
+su **dove** il codice viene scritto, sincronizzato, trasferito ed eseguito.
 
-## Confirmed environments
+Segue la struttura del warm-up del corso *From the client to WILSON*, integrando
+il workflow personale GitHub/VS Code di questo repository.
 
-| Environment | Role |
+## Ambienti confermati
+
+| Ambiente | Ruolo |
 |---|---|
-| Mac / VS Code | Main development environment at `/Users/francesco/Desktop/hpc4ai` |
-| GitHub | Canonical repository: `francescobellina/hpc4ai` |
-| Lab PC / client | Local laboratory clone and client for cluster exercises |
-| WILSON | Remote HPC environment reached as `fbellina2@wilson.mib.infn.it` |
+| Mac / VS Code | ambiente di sviluppo principale, `/Users/francesco/dev/hpc4ai` |
+| GitHub | repository canonico: `francescobellina/hpc4ai` |
+| PC di laboratorio / client | clone locale e client per gli esercizi sul cluster |
+| WILSON | ambiente HPC remoto, `fbellina2@wilson.mib.infn.it` |
 
-## Learning objectives
+## Obiettivi di apprendimento
 
-By the end of the lecture, you should be able to:
+Alla fine della lezione saprai:
 
-- distinguish the Mac, lab client, GitHub, and WILSON environments;
-- create the course local workspace using the WILSON username `fbellina2`;
-- synchronize the repository between the Mac and the lab PC;
-- transfer exercise files between the lab client and WILSON when required;
-- recognize whether a command belongs on the local client or on WILSON;
-- inspect the Lmod environment without inventing module names;
-- preserve source code and useful results in a reproducible way.
+- distinguere gli ambienti Mac, client di laboratorio, GitHub e WILSON;
+- creare il workspace locale del corso con l'username WILSON `fbellina2`;
+- sincronizzare il repository tra Mac e PC di laboratorio;
+- trasferire i file degli esercizi tra client e WILSON quando serve;
+- riconoscere se un comando appartiene al client locale o a WILSON;
+- ispezionare l'ambiente Lmod senza inventare nomi di moduli;
+- conservare sorgenti e risultati utili in modo riproducibile.
 
-## Course exercise sequence
+## Sequenza dell'esercizio del corso
 
-1. Create a local workspace.
-2. Write and compile the program.
-3. Configure and run it locally.
-4. Transfer the source and connect to WILSON.
-5. Prepare the software environment on WILSON with Lmod.
-6. Run remotely and save the result.
-7. Copy the result back and preserve the local work.
+1. Creare il workspace locale.
+2. Scrivere e compilare il programma.
+3. Configurare ed eseguire in locale.
+4. Trasferire il sorgente e connettersi a WILSON.
+5. Preparare l'ambiente software su WILSON con Lmod.
+6. Eseguire da remoto e salvare il risultato.
+7. Riportare il risultato e conservare il lavoro locale.
 
-## Structure
+## Struttura
 
-1. [Theory and workflow concepts](theory.md)
-2. [Worked examples](examples.md)
-3. [Exercises](exercises/index.md)
+1. [Teoria e concetti di workflow](theory.md)
+2. [Esempi svolti](examples.md)
+3. [Esercizi](exercises/index.md)
 
-The WILSON username and hostname are confirmed in this project. Remote working
-paths, exact module names, compiler versions, and scheduler commands remain
-exercise-specific and must not be guessed.
+Username e hostname WILSON sono confermati in questo progetto. Path remoti,
+nomi esatti dei moduli, versioni dei compilatori e comandi dello scheduler
+restano specifici dell'esercizio e non vanno indovinati.
+
+Vedi anche la [Guida al laboratorio: client e WILSON](../../workflow/lab-client-wilson.md).

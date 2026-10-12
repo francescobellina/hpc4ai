@@ -3,7 +3,7 @@
 ## Mac project
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 code .
 ```
 

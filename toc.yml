@@ -19,23 +19,28 @@ project:
   - title: Lectures
     children:
     - file: content/lectures/lecture01/index.md
-      title: 1. From the client to WILSON
+      title: 1. Dal client a WILSON
       children:
       - file: content/lectures/lecture01/theory.md
-        title: Theory
+        title: Teoria
       - file: content/lectures/lecture01/examples.md
-        title: Examples
+        title: Esempi
       - file: content/lectures/lecture01/exercises/index.md
-        title: Exercises
+        title: Esercizi
         children:
         - file: content/lectures/lecture01/exercises/exercise01-workspace.md
-          title: 1.1 Course local workspace
+          title: 1.1 Workspace locale del corso
         - file: content/lectures/lecture01/exercises/exercise02-git-sync.md
-          title: 1.2 Git synchronization
+          title: 1.2 Sincronizzazione Git
         - file: content/lectures/lecture01/exercises/exercise03-wilson-session.md
-          title: 1.3 Transfer and WILSON session
+          title: 1.3 Trasferimento e sessione WILSON
+        - file: content/lectures/lecture01/exercises/exercise04-hello-world.md
+          title: 1.4 Hello, World!
     - file: content/lectures/lecture02/index.md
-      title: 2. To be defined
+      title: "2. Computing architectures: performance models"
+      children:
+      - file: content/lectures/lecture02/notebooks/performance-models.ipynb
+        title: "Notebook — Performance models (Roofline) sintesi"
     - file: content/lectures/lecture03/index.md
       title: 3. To be defined
     - file: content/lectures/lecture04/index.md
@@ -58,6 +63,12 @@ project:
       title: 12. To be defined
     - file: content/lectures/lecture13/index.md
       title: 13. To be defined
+  - title: Exercises
+    children:
+    - file: content/exercises/report/index.md
+      title: Exercises for the report
+    - file: content/exercises/report/report-exercises.ipynb
+      title: Notebook — Basel + Parallel Hello, World
   - title: Reference
     children:
     - file: content/reference/linux.md

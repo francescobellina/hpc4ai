@@ -5,7 +5,7 @@ Repository: <https://github.com/francescobellina/hpc4ai>
 ## Mac project path
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 code .
 ```
 
@@ -14,7 +14,7 @@ code .
 Use this only if the local directory is not yet connected to GitHub:
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 git init
 git branch -M main
 git add .
@@ -59,7 +59,7 @@ git push
 ## Return to the Mac
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 git status
 git pull --ff-only
 code .
@@ -70,7 +70,7 @@ code .
 First time:
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 uv venv --python 3.12
 uv pip install --python .venv/bin/python -r requirements.txt
 ```

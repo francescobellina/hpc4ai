@@ -1,66 +1,75 @@
-# Exercise 1.3 — Transfer, connect, and document a WILSON session
+# Esercizio 1.3 — Trasferire, connettersi e documentare una sessione WILSON
 
-## Objective
+## Obiettivo
 
-Practice the boundary between the laboratory client and WILSON without storing
-credentials or inventing cluster-specific settings.
+Esercitare il confine tra client di laboratorio e WILSON senza salvare credenziali
+né inventare impostazioni specifiche del cluster.
 
-## 1. Connect from the lab client
+## 1. Connettersi dal client
 
 ```bash
-ssh fbellina2@wilson.mib.infn.it
+ssh -l fbellina2 wilson.mib.infn.it
 ```
 
-Before running further commands, check the shell prompt and confirm that the
-session is remote.
+Prima di eseguire altri comandi, controlla il prompt e conferma che la sessione è
+remota.
 
-## 2. Inspect the software environment on WILSON
+## 2. Ispezionare l'ambiente software su WILSON
 
 ```bash
+module use /srv/software/easybuild/hmns/x86-64-v2/modules/all/Core
 module list
 module avail
 ```
 
-Load only modules explicitly required by the active course exercise. Do not guess
-module names or versions.
+Carica solo i moduli esplicitamente richiesti dall'esercizio attivo. Non indovinare
+nomi o versioni di moduli.
 
-## 3. Transfer a source file when required
+## 3. Trasferire un sorgente quando richiesto
 
-Run `scp` on the lab client using the actual source file and destination required
-by the exercise:
-
-```bash
-scp <SOURCE_FILE> fbellina2@wilson.mib.infn.it:<REMOTE_DESTINATION>
-```
-
-## 4. Run and save the remote result
-
-Compile/run on WILSON according to the current exercise. Record the commands,
-software environment, and result filename in your notes.
-
-## 5. Copy the result back
-
-From the lab client:
+Esegui `scp` sul client con il file sorgente e la destinazione richiesti
+dall'esercizio:
 
 ```bash
-scp fbellina2@wilson.mib.infn.it:<REMOTE_RESULT> <LOCAL_DESTINATION>
+scp <FILE_SORGENTE> fbellina2@wilson.mib.infn.it:<DESTINAZIONE_REMOTA>
 ```
 
-Then place only useful source, notes, or small curated results in the Git
-repository and synchronize them through GitHub.
+## 4. Eseguire e salvare il risultato remoto
 
-## Important
+Compila/esegui su WILSON secondo l'esercizio corrente. Registra nelle note comandi,
+ambiente software e nome del file di risultato.
 
-Do **not** add passwords, SSH private keys, GitHub tokens, or authentication
-files to this repository. A username and hostname are not sufficient to
-authenticate and are safe to document; credentials remain outside Git.
+```bash
+module load GCC/13.2.0
+gcc -fopenmp -o thread-count thread-count.c
+OMP_NUM_THREADS=4 ./thread-count > wilson-output.txt
+head -n 5 wilson-output.txt
+exit
+```
 
-::::{dropdown} Solution / expected outcome
+## 5. Riportare il risultato sul client
+
+Dal client:
+
+```bash
+scp fbellina2@wilson.mib.infn.it:<RISULTATO_REMOTO> <DESTINAZIONE_LOCALE>
+```
+
+Poi metti nel repository solo sorgenti, note o risultati piccoli e curati, e
+sincronizza con GitHub.
+
+## Importante
+
+Non aggiungere al repository password, chiavi SSH private, token GitHub o file di
+autenticazione. Username e hostname non bastano per autenticarsi e possono essere
+documentati; le credenziali restano fuori da Git.
+
+:::{dropdown} Soluzione / esito atteso
 :color: success
 
-The session clearly distinguishes lab-client and WILSON commands, uses the login
-`fbellina2@wilson.mib.infn.it`, records only confirmed software configuration,
-and transfers only the files required by the exercise. No credentials are stored
-in Git.
+La sessione distingue chiaramente i comandi del client da quelli di WILSON, usa il
+login `fbellina2@wilson.mib.infn.it`, registra solo configurazione software
+confermata e trasferisce solo i file richiesti dall'esercizio. Nessuna credenziale
+è salvata in Git.
 
-::::
+:::

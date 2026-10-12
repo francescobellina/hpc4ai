@@ -1,34 +1,28 @@
-# Examples
+# Esempi svolti
 
-## Example: complete Git round trip
-
-On the Mac:
+**Giro completo con Git.** Sul Mac:
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 git pull --ff-only
-# edit files in VS Code
+# modifica i file in VS Code
 git add -A
 git commit -m "Add lecture notes"
 git push
 ```
 
-Later, on the lab PC:
+Più tardi, sul PC di laboratorio:
 
 ```bash
 cd hpc4ai
 git pull --ff-only
 ```
 
-## Example: course local workspace on the lab client
-
-The course warm-up creates a directory named after the WILSON account. With the
-confirmed username:
+**Workspace locale del corso sul client.** Il warm-up crea una directory col nome
+dell'account WILSON:
 
 ```bash
 cd
-pwd
-echo $HOME
 mkdir fbellina2
 cd fbellina2
 mkdir hpc-lab-exercise
@@ -36,38 +30,36 @@ cd hpc-lab-exercise
 pwd
 ```
 
-Run these commands on the lab client, not on WILSON.
+Esegui questi comandi sul client, non su WILSON.
 
-## Example: connect to WILSON
-
-From the lab client:
+**Connettersi a WILSON e ispezionare i moduli.**
 
 ```bash
 ssh fbellina2@wilson.mib.infn.it
-```
-
-Once the prompt is on WILSON, environment-module inspection commands include:
-
-```bash
+module use /srv/software/easybuild/hmns/x86-64-v2/modules/all/Core
 module list
 module avail
 ```
 
-Use only module names actually specified by the course or visible on WILSON.
+Usa solo nomi di moduli indicati dal corso o visibili su WILSON.
 
-## Example: file-transfer pattern
-
-From the lab client to WILSON:
+**Compilare ed eseguire OpenMP.**
 
 ```bash
-scp <SOURCE_FILE> fbellina2@wilson.mib.infn.it:<REMOTE_DESTINATION>
+gcc -fopenmp -o thread-count thread-count.c
+OMP_NUM_THREADS=4
+export OMP_NUM_THREADS
+./thread-count
 ```
 
-Back to the lab client:
+**Trasferimento file.**
 
 ```bash
-scp fbellina2@wilson.mib.infn.it:<REMOTE_RESULT> <LOCAL_DESTINATION>
+# client -> WILSON
+scp <FILE_SORGENTE> fbellina2@wilson.mib.infn.it:<DESTINAZIONE_REMOTA>
+
+# WILSON -> client
+scp fbellina2@wilson.mib.infn.it:<RISULTATO_REMOTO> <DESTINAZIONE_LOCALE>
 ```
 
-The placeholders are intentional: the exact file and remote directory depend on
-the current exercise.
+I segnaposto sono intenzionali: file e directory remote dipendono dall'esercizio.

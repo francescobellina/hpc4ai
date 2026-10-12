@@ -1,9 +1,10 @@
-# Exercises — From the client to WILSON
+# Esercizi — Dal client a WILSON
 
-1. [Create the local course workspace](exercise01-workspace.md)
-2. [Complete a GitHub synchronization round trip](exercise02-git-sync.md)
-3. [Transfer, connect, and document a WILSON session](exercise03-wilson-session.md)
+1. [Creare il workspace locale del corso](exercise01-workspace.md)
+2. [Completare un giro di sincronizzazione GitHub](exercise02-git-sync.md)
+3. [Trasferire, connettersi e documentare una sessione WILSON](exercise03-wilson-session.md)
+4. [Hello, World!](exercise04-hello-world.md)
 
-The first and third exercises align with the operational flow of the course
-warm-up, with the example course username replaced by `fbellina2`. The GitHub
-round trip is specific to this personal repository workflow.
+Il primo, il terzo e il quarto esercizio seguono il flusso del warm-up del corso,
+con l'username di esempio sostituito da `fbellina2`. Il giro GitHub è specifico di
+questo repository personale.

@@ -3,7 +3,7 @@
 ## Start work on the Mac
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 git status
 git switch main
 git pull --ff-only
@@ -34,7 +34,7 @@ git push
 ## Return home after a lab session
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 git status
 git pull --ff-only
 ```

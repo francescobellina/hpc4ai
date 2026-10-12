@@ -15,7 +15,7 @@ client for HPC work.
                      |                                               |
         +------------+-------------+                    +------------+----------+
         | Mac / VS Code            |                    | Lab PC / VS Code      |
-        | /Users/francesco/Desktop |                    | local Git clone       |
+        | /Users/francesco/dev |                    | local Git clone       |
         | /hpc4ai                   |                    +------------+----------+
         +--------------------------+                                 |
                                                                      | ssh / scp
@@ -40,7 +40,7 @@ the same machine in commands or notes.
 ## Home / Mac
 
 ```bash
-cd /Users/francesco/Desktop/hpc4ai
+cd /Users/francesco/dev/hpc4ai
 git status
 git pull --ff-only
 # edit / test / write in VS Code

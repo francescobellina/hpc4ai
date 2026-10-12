@@ -3,3 +3,29 @@ html { scroll-behavior: smooth; }
 article { line-height: 1.65; }
 code { font-size: 0.94em; }
 table { max-width: 100%; }
+
+/* Replace "Made with MyST" brand in header */
+.myst-home-link span.text-md {
+  visibility: hidden !important;
+  position: relative !important;
+}
+
+.myst-home-link span.text-md::after {
+  content: "HPC4ai";
+  visibility: visible !important;
+  position: absolute !important;
+  left: 0;
+  top: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
+
+/* Hide MyST branding in top nav and footer */
+.myst-top-nav .myst-home-link svg,
+.myst-top-nav .myst-home-link + a[href*="mystmd"],
+.myst-footer-credits,
+.myst-footer a[href*="mystmd.org"] {
+  display: none !important;
+}

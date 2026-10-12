@@ -1,20 +1,20 @@
-# Exercise 1.2 — Complete a GitHub synchronization round trip
+# Esercizio 1.2 — Completare un giro di sincronizzazione GitHub
 
-## Objective
+## Obiettivo
 
-Practice the sequence used to move work from one computer to the other via
-GitHub.
+Esercitare la sequenza usata per spostare il lavoro da un computer all'altro
+passando da GitHub.
 
-## Procedure
+## Procedura
 
-On the current machine:
+Sulla macchina corrente:
 
 ```bash
 git status
 git pull --ff-only
 ```
 
-Make a small edit, then:
+Fai una piccola modifica, poi:
 
 ```bash
 git add -A
@@ -23,22 +23,23 @@ git commit -m "Practice repository synchronization"
 git push
 ```
 
-On the second machine:
+Sulla seconda macchina:
 
 ```bash
 git status
 git pull --ff-only
 ```
 
-## Questions
+## Domande
 
-- Why should `pull` happen before editing?
-- What is the difference between `commit` and `push`?
+- Perché `pull` deve precedere la modifica?
+- Qual è la differenza tra `commit` e `push`?
 
-::::{dropdown} Solution / discussion
+:::{dropdown} Soluzione / discussione
 :color: success
 
-A commit records a version locally. Push publishes local commits to GitHub.
-Pull retrieves remote commits. Pulling before editing reduces divergence.
+Un commit registra una versione in locale. Il push pubblica i commit locali su
+GitHub. Il pull recupera i commit remoti. Fare pull prima di modificare riduce la
+divergenza tra le copie.
 
-::::
+:::
