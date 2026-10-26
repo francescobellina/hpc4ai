@@ -12,9 +12,11 @@ Corrisponde all'[Esercitazione 2](../../esercitazioni/es02-parallel-hello-world.
 | `run_openmp.slurm` | script di batch: `--cpus-per-task=T`, `OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK` |
 | `run_mpi.slurm` | script di batch: `--ntasks=P --cpus-per-task=1`, `OMP_NUM_THREADS=1` |
 | `run_hybrid.slurm` | script di batch: `--nodes=2 --ntasks=P --cpus-per-task=T` |
+| `build.sh` | carica i moduli e compila i due programmi |
+| `checks.sh` | verifica completa: build, test brevi, job Slurm, controllo output |
 
-I sorgenti vanno aggiunti in questa cartella quando l'esercitazione è svolta; la
-validazione locale usa la demo Python del notebook.
+`checks.sh` è il punto d'ingresso: `bash -l checks.sh all` (sottocomandi
+`build`, `quick`, `submit`, `wait`, `validate`).
 
 ## Dipendenze (WILSON)
 

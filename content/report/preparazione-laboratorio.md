@@ -8,6 +8,23 @@ title: Preparazione laboratorio — Parallel Hello, World! su WILSON
 Questa pagina riporta i comandi per replicare l'esercizio su WILSON: eseguili prima della relazione.
 :::
 
+:::{note} Script unico di verifica
+Tutti i controlli sono raccolti in
+[`codes/exec2/checks.sh`](codes/exec2/checks.sh). Dalla cartella del repository
+sul **WILSON**, dopo `git pull`:
+
+```bash
+cd content/report/codes/exec2
+bash -l checks.sh all      # build + test brevi + job Slurm + verifica output
+bash -l checks.sh all      # rieseguibile: validate riusa jobs.tsv
+```
+
+Sottocomandi: `build`, `quick`, `submit`, `wait`, `validate` (default `all`).
+Lo script stampa `OK`/`FAIL` per ogni controllo e termina con exit code diverso
+da zero se qualcosa non torna. I test `quick` girano sul nodo di login: sono
+brevi, i job veri passano da Slurm.
+:::
+
 Questa pagina riporta i comandi del corso per l'esercizio [Parallel Hello, World!](https://virgilio.mib.infn.it/~marcoce/teaching/hpc4ai/content/exercises/parallel-hello-world.html), adattati all'account `fbellina2` su `wilson.mib.infn.it`. Esegui i blocchi in ordine.
 
 Il corso fissa la partizione `lab4` e i percorsi dei moduli. Conferma con `sinfo` e `module spider` prima di inviare i job.
