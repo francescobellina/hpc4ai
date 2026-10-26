@@ -8,15 +8,32 @@ title: Preparazione laboratorio — Parallel Hello, World! su WILSON
 Questa pagina riporta i comandi per replicare l'esercizio su WILSON: eseguili prima della relazione.
 :::
 
-:::{note} Script unico di verifica
-Tutti i controlli sono raccolti in
-[`codes/exec2/checks.sh`](codes/exec2/checks.sh). Dalla cartella del repository
-sul **WILSON**, dopo `git pull`:
+:::{note} Avvio rapido — un solo blocco
+Da incollare in una shell **su WILSON** (terminale Warp dopo `ssh`, oppure
+terminale integrato di VS Code in Remote-SSH). Trova il repository, lo aggiorna
+ed esegue tutti i controlli tramite `codes/exec2/checks.sh`:
 
 ```bash
-cd content/report/codes/exec2
+hostname; which sbatch     # deve stampare un path: sei su WILSON
+
+REPO=$(find ~ -maxdepth 4 -type d -name hpc4ai 2>/dev/null | head -1)
+if [ -z "$REPO" ]; then
+  git clone git@github.com:francescobellina/hpc4ai.git ~/hpc4ai && REPO=$HOME/hpc4ai
+fi
+git -C "$REPO" pull --ff-only && bash -l "$REPO/content/report/codes/exec2/checks.sh" all
+```
+
+Se `which sbatch` dice `not found` sei sul Mac: apri
+`ssh fbellina2@wilson.mib.infn.it`.
+:::
+
+:::{note} Script unico di verifica
+Tutti i controlli sono raccolti in
+[`codes/exec2/checks.sh`](codes/exec2/checks.sh). Dalla cartella
+`content/report/codes/exec2` del repository sul **WILSON**:
+
+```bash
 bash -l checks.sh all      # build + test brevi + job Slurm + verifica output
-bash -l checks.sh all      # rieseguibile: validate riusa jobs.tsv
 ```
 
 Sottocomandi: `build`, `quick`, `submit`, `wait`, `validate` (default `all`).
