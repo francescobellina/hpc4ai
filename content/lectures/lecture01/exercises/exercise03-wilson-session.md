@@ -64,12 +64,11 @@ Non aggiungere al repository password, chiavi SSH private, token GitHub o file d
 autenticazione. Username e hostname non bastano per autenticarsi e possono essere
 documentati; le credenziali restano fuori da Git.
 
-:::{dropdown} Soluzione / esito atteso
-:color: success
+::::{dropdown} Soluzione / esito atteso
 
 La sessione distingue chiaramente i comandi del client da quelli di WILSON, usa il
 login `fbellina2@wilson.mib.infn.it`, registra solo configurazione software
 confermata e trasferisce solo i file richiesti dall'esercizio. Nessuna credenziale
 è salvata in Git.
 
-:::
+::::

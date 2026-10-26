@@ -1,83 +1,58 @@
-# Workflow overview
+# Ambiente di lavoro e sincronizzazione
 
-The repository uses **GitHub as the central synchronization point** between the
-Mac at home and the laboratory PC. WILSON is reached separately from the lab
-client for HPC work.
+Il repository distingue tre ambienti: sviluppo locale, sincronizzazione Git e calcolo remoto. Mac e PC di laboratorio ospitano copie locali del repository; GitHub è il punto di sincronizzazione; WILSON è un ambiente separato, raggiunto quando l'esercizio richiede risorse HPC.
 
-```text
-                         +--------------------------------------+
-                         |                GitHub                |
-                         | francescobellina/hpc4ai (canonical)  |
-                         +-------------------+------------------+
-                                             ^
-                                    push/pull|push/pull
-                     +-----------------------+-----------------------+
-                     |                                               |
-        +------------+-------------+                    +------------+----------+
-        | Mac / VS Code            |                    | Lab PC / VS Code      |
-        | /Users/francesco/dev |                    | local Git clone       |
-        | /hpc4ai                   |                    +------------+----------+
-        +--------------------------+                                 |
-                                                                     | ssh / scp
-                                                                     v
-                                                        +------------+----------+
-                                                        | WILSON                |
-                                                        | fbellina2             |
-                                                        | @wilson.mib.infn.it   |
-                                                        +-----------------------+
-```
+## Sviluppo locale
 
-## The key distinction
+Sul Mac, il percorso usato da questo progetto è `/Users/francesco/dev/hpc4ai`. Sul PC di laboratorio, lavora nella cartella del clone. Apri la directory del progetto in VS Code e controlla sempre la directory corrente prima di eseguire un comando.
 
-The **lab PC** is where the Git repository is cloned and edited during laboratory
-sessions. **WILSON** is the remote HPC execution environment. Do not treat them as
-the same machine in commands or notes.
-
-## Golden rule
-
-**Pull before you start editing; push before you move to the other computer.**
-
-## Home / Mac
+Per preparare l'ambiente del libro e avviare l'anteprima, il repository fornisce questi script:
 
 ```bash
-cd /Users/francesco/dev/hpc4ai
-git status
-git pull --ff-only
-# edit / test / write in VS Code
-git add -A
-git commit -m "Describe the change"
-git push
+./scripts/setup-env.sh
+./scripts/preview.sh
 ```
 
-## First lab session
+Per i controlli di qualità e la build:
 
-Clone only once:
+```bash
+./scripts/check.sh
+./scripts/build.sh
+```
+
+Usa `./scripts/clean.sh` solo quando vuoi rimuovere l'output generato `_build/`. Gli script e le attività VS Code sono definiti nel repository; l'ambiente Python è locale e non è l'ambiente di WILSON.
+
+In VS Code, **Terminal -> Run Task** espone attività per setup e anteprima del libro, build e check, pulizia dell'output, stato Git, pull `--ff-only`, push e SSH WILSON. Usa l'attività SSH solo da una rete che può raggiungere il cluster.
+
+## Git tra le due postazioni
+
+Al primo utilizzo, clona il repository del corso sul PC di laboratorio:
 
 ```bash
 git clone https://github.com/francescobellina/hpc4ai.git
 cd hpc4ai
-code .
 ```
 
-## Later lab sessions
+Clonalo una sola volta. All'inizio di una sessione controlla le modifiche e aggiorna solo se Git può avanzare senza creare un merge automatico:
 
 ```bash
-cd hpc4ai
 git status
 git pull --ff-only
-# edit / run / collect useful results
+```
+
+Dopo un'unità di lavoro coerente:
+
+```bash
 git add -A
-git commit -m "Describe the lab work"
+git status
+git commit -m "Descrivi la modifica"
 git push
 ```
 
-## Cluster step when required
+Al ritorno sull'altra postazione, esegui `git status` e `git pull --ff-only` prima di modificare gli stessi file. Se il pull rifiuta, ispeziona lo stato e la cronologia con `git log --oneline --decorate --graph -10`; non forzare l'aggiornamento.
 
-From the lab client:
+## Organizzazione del progetto
 
-```bash
-ssh fbellina2@wilson.mib.infn.it
-```
+Le lezioni sono sotto `content/lectures/`, gli strumenti generali sotto `content/reference/` e la relazione di laboratorio sotto `content/report/`. Codice completo, notebook, figure e risultati restano vicini al materiale che li usa. Il TOC del libro è `toc.yml`; la configurazione MyST è `myst.yml`.
 
-File transfers required by an exercise use `scp`; Git synchronization remains
-Mac <-> GitHub <-> lab PC unless the course explicitly instructs otherwise.
+Per l'accesso, i trasferimenti e l'esecuzione su WILSON, consulta la [guida pratica al cluster](lab-client-wilson.md). Non confondere il clone locale con la directory remota e non salvare credenziali nel repository.

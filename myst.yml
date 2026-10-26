@@ -20,6 +20,8 @@ project:
     - scripts/**
     - results/**
     - config/**
+    - content/report/codes/**
+    - content/exercises/**
 
 site:
   template: book-theme
@@ -27,3 +29,5 @@ site:
   options:
     folders: true
     style: ./assets/css/custom.css
+    logo: ./assets/images/logo.png
+    logo_alt: HPC4AI

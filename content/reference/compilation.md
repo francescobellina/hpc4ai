@@ -1,30 +1,17 @@
 # Compilazione C/C++
 
-Un compilatore traduce il sorgente in un eseguibile. Compilare ed eseguire sono
-passi separati: gli errori del compilatore riguardano la traduzione, quelli di
-`./prog` avvengono durante l'esecuzione.
+Compilazione ed esecuzione sono fasi separate. Il compilatore traduce il sorgente; l'eseguibile viene avviato successivamente dalla shell.
 
 ```bash
-gcc -o prog prog.c                  # C
-g++ -o prog prog.cpp                # C++
-gcc -Wall -Wextra -o prog prog.c    # con warning completi
-gcc -lm -o prog prog.c              # se il codice usa <math.h>
-./prog                              # esegue nella directory corrente
+gcc -Wall -Wextra -o prog prog.c
+g++ -Wall -Wextra -o prog prog.cpp
+./prog
 ```
 
-| Comando | Scopo |
-|---|---|
-| `gcc -o prog prog.c` | compila C |
-| `g++ -o prog prog.cpp` | compila C++ |
-| `gcc -Wall -Wextra ...` | abilita i warning utili |
-| `gcc -lm ...` | collega la libreria matematica |
-| `./prog` | esegue l'eseguibile |
-
-`-o prog` sceglie il nome dell'output; se la compilazione riesce il compilatore non
-stampa nulla. `#include <math.h>` fornisce le dichiarazioni, `-lm` chiede al linker
-la libreria: le due cose sono separate. Per distinguere sorgente ed eseguibile:
+Adatta il nome del file sorgente e quello dell'eseguibile. `-o prog` sceglie il nome dell'output. Se il programma usa funzioni matematiche C che richiedono la libreria matematica, il collegamento può richiedere `-lm`:
 
 ```bash
-ls -l prog.c prog
-file prog.c prog
+gcc -Wall -Wextra -o prog prog.c -lm
 ```
+
+Per compilare codice OpenMP o MPI e scegliere moduli e ambiente di esecuzione, consulta la [guida WILSON](../workflow/lab-client-wilson.md).

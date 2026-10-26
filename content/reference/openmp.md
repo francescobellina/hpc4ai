@@ -1,45 +1,5 @@
 # Riferimento OpenMP
 
-OpenMP esprime parallelismo a memoria condivisa: più thread cooperano sullo stesso
-spazio di indirizzi. `-fopenmp` abilita le direttive e collega la libreria runtime;
-`OMP_NUM_THREADS` sceglie il numero di thread.
+OpenMP esprime parallelismo a memoria condivisa tramite direttive e routine disponibili nei linguaggi supportati. I thread di una regione parallela appartengono allo stesso processo e possono accedere alle sue aree di memoria condivise.
 
-```bash
-gcc -fopenmp -o prog prog.c
-OMP_NUM_THREADS=4
-export OMP_NUM_THREADS
-./prog
-```
-
-Esempio: contare i thread attivi.
-
-```c
-#include <omp.h>
-#include <stdio.h>
-
-int main(void)
-{
-    int thread_count = 1;
-
-#pragma omp parallel
-    {
-#pragma omp single
-        thread_count = omp_get_num_threads();
-    }
-
-    printf("OpenMP used %d thread(s)\n", thread_count);
-    return 0;
-}
-```
-
-```bash
-gcc -fopenmp -o thread-count thread-count.c
-OMP_NUM_THREADS=4 ./thread-count
-# OpenMP used 4 thread(s)
-```
-
-| Comando | Scopo |
-|---|---|
-| `gcc -fopenmp -o prog prog.c` | compila con OpenMP |
-| `OMP_NUM_THREADS=4` + `export` | imposta il numero di thread |
-| `./prog` | esegue |
+Il capitolo [Parallelismo e programmazione parallela](../lectures/lecture03/index.md#shared-memory-openmp) spiega modello, thread e sincronizzazione. Per compilazione, `OMP_NUM_THREADS` e procedure del cluster, consulta la [guida WILSON](../workflow/lab-client-wilson.md).

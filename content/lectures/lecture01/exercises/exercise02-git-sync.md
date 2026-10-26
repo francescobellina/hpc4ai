@@ -35,11 +35,10 @@ git pull --ff-only
 - Perché `pull` deve precedere la modifica?
 - Qual è la differenza tra `commit` e `push`?
 
-:::{dropdown} Soluzione / discussione
-:color: success
+::::{dropdown} Soluzione / discussione
 
 Un commit registra una versione in locale. Il push pubblica i commit locali su
 GitHub. Il pull recupera i commit remoti. Fare pull prima di modificare riduce la
 divergenza tra le copie.
 
-:::
+::::

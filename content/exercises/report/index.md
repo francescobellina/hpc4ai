@@ -11,7 +11,7 @@ Two exercises:
 2. **Parallel Hello, World!** — how a parallel run is organized: OpenMP
    threads, MPI ranks, hybrid layout, Slurm scheduling.
 
-The companion notebook [`report-exercises.ipynb`](report-exercises.ipynb)
+The companion notebook [`report-exercises.ipynb`](../../report/notebooks/report-exercises.ipynb)
 contains a runnable Python/NumPy version of Exercise 1 (partial sums,
 convergence study, error plot) and reference material for Exercise 2 (Python
 threading demo plus C, MPI and Slurm templates).

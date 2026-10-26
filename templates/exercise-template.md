@@ -27,7 +27,6 @@ Connect the task to the theory of the lecture.
 Explain what should be inspected without giving away the full solution.
 
 ::::{dropdown} Solution
-:color: success
 
 Add the solution and reasoning here.
 

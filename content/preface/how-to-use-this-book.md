@@ -1,13 +1,10 @@
-# How to use this book
+# Come usare il libro
 
-For each lecture:
+Per ogni argomento:
 
-1. Read the theory and mathematical background.
-2. Work through the small examples.
-3. Complete the exercises in order when dependencies exist.
-4. Run the associated source code or notebooks in the environment requested by
-   the exercise.
-5. Record small, meaningful results and observations.
+1. Leggi il capitolo teorico e i suoi collegamenti alle sezioni.
+2. Segui gli esempi prima di affrontare gli esercizi.
+3. Esegui ogni comando nell'ambiente indicato dalla pagina.
+4. Registra parametri, software e risultati utili per riprodurre il lavoro.
 
-Do not assume that every command belongs on the same machine. Pages should state
-whether a command is intended for macOS, the lab client, WILSON, or GitHub CI.
+Non presumere che un comando valga su tutte le macchine. Le pagine devono distinguere l'ambiente locale, il client di laboratorio, WILSON e gli strumenti del libro.

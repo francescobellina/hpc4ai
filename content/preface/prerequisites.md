@@ -1,12 +1,10 @@
-# Prerequisites
+# Prerequisiti
 
-The repository assumes basic familiarity with:
+È utile avere familiarità di base con:
 
-- a terminal and common Linux/macOS shell commands;
-- VS Code;
-- Python fundamentals;
-- basic Git concepts;
-- programming concepts in C/C++ when those lectures require them.
+- terminale e comandi essenziali di Linux e macOS;
+- programmazione in Python;
+- concetti essenziali di Git e uso di VS Code;
+- programmazione C/C++ negli esercizi che la richiedono.
 
-HPC-specific tools such as MPI, OpenMP, Lmod, and cluster execution will be
-introduced in the relevant lecture or reference page.
+MPI, OpenMP, moduli software e job su cluster vengono introdotti nel libro.

@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1040" role="img" aria-labelledby="title desc">
+  <title id="title">Modelli di parallelismo in HPC</title>
+  <desc id="desc">Confronto tra memoria condivisa con OpenMP, memoria distribuita con MPI e modello ibrido MPI più OpenMP.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#174a7e"/>
+    </marker>
+    <marker id="arrow-start" markerWidth="10" markerHeight="10" refX="2" refY="5" orient="auto">
+      <path d="M10,0 L0,5 L10,10 z" fill="#174a7e"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; fill: #12345b; }
+      .title { font-size: 42px; font-weight: 700; }
+      .subtitle { font-size: 24px; }
+      .panel-title { font-size: 28px; font-weight: 700; }
+      .panel-desc { font-size: 19px; }
+      .label { font-size: 20px; font-weight: 700; }
+      .small { font-size: 16px; }
+      .body { font-size: 19px; }
+      .badge { font-size: 22px; font-weight: 700; }
+      .outline { fill: #fff; stroke-width: 2; }
+      .thread { fill: #d9efff; stroke: #3295df; stroke-width: 2; }
+      .memory { fill: #d9f3df; stroke: #58b87a; stroke-width: 2; }
+      .panel-blue { fill: #f7fbff; stroke: #8bcfff; }
+      .panel-green { fill: #fbfffc; stroke: #9dddb5; }
+      .panel-purple { fill: #fcfbff; stroke: #b4b0f5; }
+    </style>
+  </defs>
+
+  <rect width="1500" height="1040" fill="#ffffff"/>
+  <text x="750" y="58" text-anchor="middle" class="title">Modelli di parallelismo in HPC</text>
+  <text x="750" y="96" text-anchor="middle" class="subtitle">Tre approcci, un obiettivo: sfruttare al meglio le risorse di calcolo.</text>
+
+  <!-- Shared memory / OpenMP -->
+  <g>
+    <rect x="22" y="125" width="472" height="700" rx="14" class="panel-blue" stroke-width="2"/>
+    <path d="M36 125 H480 Q494 125 494 139 V252 H22 V139 Q22 125 36 125Z" fill="#d5edff"/>
+    <text x="258" y="169" text-anchor="middle" class="panel-title">Shared memory = OpenMP</text>
+    <text x="258" y="205" text-anchor="middle" class="panel-desc">Thread dello stesso processo lavorano</text>
+    <text x="258" y="231" text-anchor="middle" class="panel-desc">sulle aree di memoria condivise.</text>
+
+    <rect x="48" y="276" width="420" height="332" rx="12" class="outline" stroke="#68b9f3"/>
+    <text x="258" y="307" text-anchor="middle" class="label">Processo</text>
+    <rect x="68" y="323" width="380" height="163" rx="10" fill="#eaf6ff" stroke="#83caff" stroke-width="2"/>
+    <text x="258" y="351" text-anchor="middle" class="label">Thread OpenMP</text>
+    <g class="small" text-anchor="middle">
+      <rect x="82" y="369" width="78" height="70" rx="8" class="thread"/><text x="121" y="399">Thread</text><text x="121" y="422">0</text>
+      <rect x="171" y="369" width="78" height="70" rx="8" class="thread"/><text x="210" y="399">Thread</text><text x="210" y="422">1</text>
+      <rect x="260" y="369" width="78" height="70" rx="8" class="thread"/><text x="299" y="399">Thread</text><text x="299" y="422">2</text>
+      <rect x="349" y="369" width="78" height="70" rx="8" class="thread"/><text x="388" y="399">Thread</text><text x="388" y="422">3</text>
+    </g>
+    <path d="M121 443 V495" stroke="#174a7e" stroke-width="3" marker-start="url(#arrow-start)" marker-end="url(#arrow)"/>
+    <path d="M210 443 V495" stroke="#174a7e" stroke-width="3" marker-start="url(#arrow-start)" marker-end="url(#arrow)"/>
+    <path d="M299 443 V495" stroke="#174a7e" stroke-width="3" marker-start="url(#arrow-start)" marker-end="url(#arrow)"/>
+    <path d="M388 443 V495" stroke="#174a7e" stroke-width="3" marker-start="url(#arrow-start)" marker-end="url(#arrow)"/>
+    <rect x="68" y="500" width="380" height="76" rx="9" class="memory"/>
+    <text x="258" y="530" text-anchor="middle" class="label">Memoria condivisa</text>
+    <text x="258" y="555" text-anchor="middle" class="small">stesso spazio di indirizzamento</text>
+
+    <rect x="48" y="624" width="420" height="126" rx="12" fill="#e8f5ff"/>
+    <text x="70" y="656" class="body">• Un solo processo.</text>
+    <text x="70" y="686" class="body">• Più thread condividono la memoria.</text>
+    <text x="70" y="716" class="body">• Sincronizzazione evita le race condition.</text>
+    <rect x="105" y="768" width="306" height="42" rx="21" fill="#cce9ff"/>
+    <text x="258" y="796" text-anchor="middle" class="badge">Shared memory = OpenMP</text>
+  </g>
+
+  <!-- Distributed memory / MPI -->
+  <g>
+    <rect x="514" y="125" width="472" height="700" rx="14" class="panel-green" stroke-width="2"/>
+    <path d="M528 125 H972 Q986 125 986 139 V252 H514 V139 Q514 125 528 125Z" fill="#daf4e2"/>
+    <text x="750" y="169" text-anchor="middle" class="panel-title">Distributed memory = MPI</text>
+    <text x="750" y="205" text-anchor="middle" class="panel-desc">Processi con spazi di memoria separati</text>
+    <text x="750" y="231" text-anchor="middle" class="panel-desc">comunicano tramite messaggi.</text>
+
+    <rect x="540" y="300" width="184" height="294" rx="12" class="outline" stroke="#70c78d"/>
+    <rect x="776" y="300" width="184" height="294" rx="12" class="outline" stroke="#70c78d"/>
+    <text x="632" y="333" text-anchor="middle" class="label">Processo MPI 0</text>
+    <text x="868" y="333" text-anchor="middle" class="label">Processo MPI 1</text>
+    <text x="632" y="366" text-anchor="middle" class="small">Thread opzionali</text>
+    <text x="868" y="366" text-anchor="middle" class="small">Thread opzionali</text>
+    <g class="small" text-anchor="middle">
+      <rect x="553" y="377" width="48" height="45" rx="6" class="thread"/><text x="577" y="406">T0</text>
+      <rect x="607" y="377" width="48" height="45" rx="6" class="thread"/><text x="631" y="406">T1</text>
+      <rect x="661" y="377" width="48" height="45" rx="6" class="thread"/><text x="685" y="406">T2</text>
+      <rect x="789" y="377" width="48" height="45" rx="6" class="thread"/><text x="813" y="406">T0</text>
+      <rect x="843" y="377" width="48" height="45" rx="6" class="thread"/><text x="867" y="406">T1</text>
+      <rect x="897" y="377" width="48" height="45" rx="6" class="thread"/><text x="921" y="406">T2</text>
+    </g>
+    <path d="M729 451 H766" stroke="#174a7e" stroke-width="3" marker-start="url(#arrow-start)" marker-end="url(#arrow)"/>
+    <text x="750" y="442" text-anchor="middle" class="small">messaggi</text>
+    <rect x="553" y="463" width="158" height="96" rx="9" class="memory"/>
+    <rect x="789" y="463" width="158" height="96" rx="9" class="memory"/>
+    <text x="632" y="502" text-anchor="middle" class="label">Memoria locale</text>
+    <text x="632" y="528" text-anchor="middle" class="small">separata</text>
+    <text x="868" y="502" text-anchor="middle" class="label">Memoria locale</text>
+    <text x="868" y="528" text-anchor="middle" class="small">separata</text>
+
+    <rect x="540" y="624" width="420" height="126" rx="12" fill="#e8f8ed"/>
+    <text x="562" y="656" class="body">• Più processi, sullo stesso nodo o su nodi diversi.</text>
+    <text x="562" y="686" class="body">• Ogni processo possiede la propria memoria.</text>
+    <text x="562" y="716" class="body">• I processi comunicano tramite messaggi MPI.</text>
+    <rect x="597" y="768" width="306" height="42" rx="21" fill="#cdefd7"/>
+    <text x="750" y="796" text-anchor="middle" class="badge">Distributed memory = MPI</text>
+  </g>
+
+  <!-- Hybrid MPI + OpenMP -->
+  <g>
+    <rect x="1006" y="125" width="472" height="700" rx="14" class="panel-purple" stroke-width="2"/>
+    <path d="M1020 125 H1464 Q1478 125 1478 139 V252 H1006 V139 Q1006 125 1020 125Z" fill="#e8e7ff"/>
+    <text x="1242" y="169" text-anchor="middle" class="panel-title">Hybrid = MPI + OpenMP</text>
+    <text x="1242" y="205" text-anchor="middle" class="panel-desc">MPI comunica tra processi; OpenMP crea</text>
+    <text x="1242" y="231" text-anchor="middle" class="panel-desc">thread all'interno di ciascun processo.</text>
+
+    <rect x="1030" y="276" width="424" height="332" rx="12" class="outline" stroke="#9994ef"/>
+    <text x="1242" y="307" text-anchor="middle" class="label">Nodo</text>
+    <rect x="1045" y="322" width="187" height="220" rx="10" fill="#f8f7ff" stroke="#aaa5f0" stroke-width="2"/>
+    <rect x="1252" y="322" width="187" height="220" rx="10" fill="#f8f7ff" stroke="#aaa5f0" stroke-width="2"/>
+    <text x="1138" y="350" text-anchor="middle" class="small" font-weight="700">Processo MPI 0</text>
+    <text x="1345" y="350" text-anchor="middle" class="small" font-weight="700">Processo MPI 1</text>
+    <rect x="1060" y="365" width="157" height="76" rx="8" fill="#eaf6ff" stroke="#83caff" stroke-width="2"/>
+    <rect x="1267" y="365" width="157" height="76" rx="8" fill="#eaf6ff" stroke="#83caff" stroke-width="2"/>
+    <text x="1138" y="390" text-anchor="middle" class="small">Thread OpenMP</text>
+    <text x="1345" y="390" text-anchor="middle" class="small">Thread OpenMP</text>
+    <g class="small" text-anchor="middle">
+      <rect x="1068" y="400" width="32" height="30" rx="5" class="thread"/><text x="1084" y="421">T0</text>
+      <rect x="1104" y="400" width="32" height="30" rx="5" class="thread"/><text x="1120" y="421">T1</text>
+      <rect x="1140" y="400" width="32" height="30" rx="5" class="thread"/><text x="1156" y="421">T2</text>
+      <rect x="1176" y="400" width="32" height="30" rx="5" class="thread"/><text x="1192" y="421">T3</text>
+      <rect x="1275" y="400" width="32" height="30" rx="5" class="thread"/><text x="1291" y="421">T0</text>
+      <rect x="1311" y="400" width="32" height="30" rx="5" class="thread"/><text x="1327" y="421">T1</text>
+      <rect x="1347" y="400" width="32" height="30" rx="5" class="thread"/><text x="1363" y="421">T2</text>
+      <rect x="1383" y="400" width="32" height="30" rx="5" class="thread"/><text x="1399" y="421">T3</text>
+    </g>
+    <path d="M1237 454 H1247" stroke="#174a7e" stroke-width="3" marker-start="url(#arrow-start)" marker-end="url(#arrow)"/>
+    <text x="1242" y="474" text-anchor="middle" font-size="13">MPI</text>
+    <rect x="1060" y="480" width="157" height="48" rx="8" class="memory"/>
+    <rect x="1267" y="480" width="157" height="48" rx="8" class="memory"/>
+    <text x="1138" y="510" text-anchor="middle" class="small">Memoria locale</text>
+    <text x="1345" y="510" text-anchor="middle" class="small">Memoria locale</text>
+    <rect x="1045" y="552" width="394" height="40" rx="8" fill="#e5e4ff" stroke="#aaa5f0" stroke-width="2"/>
+    <text x="1242" y="578" text-anchor="middle" class="small">RAM del nodo: condivisa a livello di sistema</text>
+
+    <rect x="1030" y="624" width="424" height="126" rx="12" fill="#efeeff"/>
+    <text x="1052" y="656" class="body">• MPI coordina la comunicazione tra processi.</text>
+    <text x="1052" y="686" class="body">• OpenMP parallelizza con thread ogni processo.</text>
+    <text x="1052" y="716" class="body">• Ogni processo mantiene la propria memoria.</text>
+    <rect x="1089" y="768" width="306" height="42" rx="21" fill="#dcdafe"/>
+    <text x="1242" y="796" text-anchor="middle" class="badge">Hybrid = MPI + OpenMP</text>
+  </g>
+
+  <rect x="22" y="850" width="1456" height="160" rx="16" fill="#e5f4ff"/>
+  <text x="62" y="895" class="label">In sintesi</text>
+  <text x="62" y="936" class="body" font-weight="700">Numero totale di thread = processi MPI × thread OpenMP per processo</text>
+  <line x1="1010" y1="870" x2="1010" y2="990" stroke="#5c8db8" stroke-width="2"/>
+  <text x="1040" y="888" class="small"><tspan font-weight="700">Processo:</tspan> esecuzione indipendente.</text>
+  <text x="1040" y="919" class="small"><tspan font-weight="700">Thread:</tspan> flusso di esecuzione dentro un processo.</text>
+  <text x="1040" y="950" class="small"><tspan font-weight="700">CPU logica:</tspan> unità hardware visibile al sistema operativo.</text>
+  <text x="1040" y="981" class="small"><tspan font-weight="700">Nodo:</tspan> computer del cluster.</text>
+</svg>

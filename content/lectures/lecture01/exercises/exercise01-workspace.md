@@ -37,11 +37,10 @@ fbellina2/hpc-lab-exercise
 - Perché il workspace del client non va confuso con la home remota di WILSON?
 - Cosa contiene `$HOME` prima e dopo il cambio di directory?
 
-:::{dropdown} Soluzione / verifiche attese
-:color: success
+::::{dropdown} Soluzione / verifiche attese
 
 Il workspace esiste sul client sotto una directory chiamata `fbellina2` e la shell
 è dentro `hpc-lab-exercise`. `$HOME` continua a puntare alla home dell'account
 locale anche dopo che `cd` ha cambiato la directory di lavoro corrente.
 
-:::
+::::

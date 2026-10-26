@@ -1,24 +1,5 @@
 # Riferimento MPI
 
-MPI esprime parallelismo a memoria distribuita: ogni processo ha il proprio spazio
-di indirizzi e scambia messaggi espliciti. Su WILSON servono prima un compilatore e
-un'implementazione MPI (vedi [Riferimento Lmod](lmod.md)).
+MPI è uno standard di comunicazione tra processi. I processi hanno normalmente spazi di indirizzamento separati; un rank li identifica nel gruppo MPI. Il numero di processi e il metodo di avvio dipendono dall'esecuzione e dall'ambiente.
 
-```bash
-module load GCC/13.2.0
-module load OpenMPI/4.1.6
-mpicc -o prog prog.c        # C
-mpicpp -o prog prog.cpp     # C++
-mpicc --showme              # invocazione reale, include e librerie
-mpiexec -c 4 ./prog         # esegue 4 processi
-```
-
-| Comando | Scopo |
-|---|---|
-| `mpicc -o prog prog.c` | compila C con MPI |
-| `mpicpp -o prog prog.cpp` | compila C++ con MPI |
-| `mpicc --showme` | mostra le opzioni aggiunte dal wrapper |
-| `mpiexec -c 4 ./prog` | avvia 4 processi |
-
-I wrapper `mpicc`/`mpicpp` invocano il compilatore sottostante con le opzioni MPI
-richieste.
+Il capitolo [Parallelismo e programmazione parallela](../lectures/lecture03/index.md#mpi-memoria-distribuita) descrive MPI e il modello ibrido. Per wrapper di compilazione, lancio e risorse del cluster, consulta la [guida WILSON](../workflow/lab-client-wilson.md).

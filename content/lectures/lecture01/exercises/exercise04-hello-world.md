@@ -86,8 +86,7 @@ echo $?
 - Cosa cambia tra eseguire direttamente `./hello_world.sh` e `bash hello_world.sh`?
 - Ripetendo l'esercizio su WILSON, quali moduli servono e quali no?
 
-:::{dropdown} Soluzione / esito atteso
-:color: success
+::::{dropdown} Soluzione / esito atteso
 
 Le tre versioni stampano `Hello, world!` e terminano con stato 0. `file` distingue
 `hello_world.c` (testo C source) da `hello_world` (ELF executable). Eseguire
@@ -96,4 +95,4 @@ hello_world.sh` esegue l'interprete esplicitamente e non richiede il permesso.
 Su WILSON la compilazione C richiede `module load GCC/13.2.0`; uno script non
 richiede moduli.
 
-:::
+::::

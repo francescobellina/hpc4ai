@@ -7,8 +7,8 @@ dove gira il comando e quale ambiente è attivo.
 python        # client locale; esci con exit() o Ctrl+D
 ```
 
-Su WILSON le librerie per HPC e machine learning sono in un virtual environment
-preinstallato: attivalo prima di usare Python.
+Gli appunti del corso riportano un virtual environment preinstallato su WILSON.
+Verifica percorso e disponibilità nell'ambiente effettivo prima di attivarlo:
 
 ```bash
 source /srv/software2/venv/python39/bin/activate
@@ -16,13 +16,14 @@ python        # ora punta al venv
 ipython       # shell interattiva
 ```
 
-Il path del venv è quello del corso: confermalo su WILSON prima di usarlo.
+Il percorso `/srv/software2/venv/python39/bin/activate` compare negli appunti, ma
+non è una configurazione WILSON verificata in questo repository.
 
 ## JupyterHub
 
 <https://wilson.mib.infn.it/jupyter>
 
-- accessibile solo dalla rete del laboratorio;
+- l'indirizzo e l'accessibilità dipendono dalle istruzioni aggiornate del corso;
 - login con le credenziali WILSON;
 - kernel Python e Julia; utile anche per copiare e spostare file.
 

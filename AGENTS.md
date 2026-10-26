@@ -1,7 +1,8 @@
 # HPC4AI project — agent guidelines
 
 Personal Jupyter Book (Jupyter Book 2 / MyST) for the HPC4AI course: notes,
-examples, exercises, notebooks. Content lives in `content/`, lecture by lecture.
+examples, exercises, notebooks. Content lives in `content/`: lectures under
+`content/lectures/`, the lab report under `content/report/`.
 
 ## Commands
 
@@ -26,8 +27,9 @@ warnings: resolve them, do not bypass.
   `wilson.mib.infn.it`.
 - **Never commit credentials**: passwords, SSH keys, tokens. `config/cluster.env`
   is local, git-ignored; `config/cluster.example.env` is the template.
-- Content is in **English**. Remove or translate Italian scratch notes before
-  saving a page.
+- Content is in **English**, except the lab report (`content/report/`), which is
+  in **Italian** (English only for theory quoted from sources). Remove or
+  translate other Italian scratch notes before saving a page.
 - Generated output is never edited: `_build/`, `.myst/`, `.venv/` are git-ignored.
 
 ## Structure conventions
@@ -40,7 +42,7 @@ content/lectures/lectureXX/
 ├── theory.md     # concise theory
 ├── examples.md   # worked examples bridge theory and exercises
 ├── exercises/    # one .md per task: objective, procedure, questions,
-│                 # collapsed dropdown solution (:::: dropdown ::::)
+│                 # collapsed dropdown solution (::::{dropdown})
 ├── notebooks/
 ├── code/
 ├── data/
@@ -52,13 +54,43 @@ content/lectures/lectureXX/
 - Add every new page to `toc.yml`; order there matches the rendered book.
 - Lectures without material stay `# Lecture NN — To be defined` until real
   course content arrives. Do not fill them with placeholders.
-- Solutions in exercises are visible but collapsed (`:::: dropdown`, color
-  success).
+- Solutions in exercises are visible but collapsed (`::::{dropdown}`).
 - Notebooks: keep outputs small, clear cell state, kernel name `hpc4ai`.
 - Move a figure/notebook/code block to `shared/` only if two+ lectures reuse
   it.
 - Curated outputs go in `results/`. Large raw output and logs stay untracked;
   do not commit `results/**/raw/`.
+
+## Lab report (`content/report/`)
+
+The lab report follows fixed guidelines:
+
+```text
+content/report/
+├── index.md                  # purpose, structure, writing conventions
+├── teoria.md                 # essential theory only; full treatment in the notebook
+├── esercitazioni/
+│   ├── index.md
+│   └── esNN-<slug>.md        # one page per exercise, fixed schema
+├── riepilogo.md              # final checkpoint table
+├── appendice-codici.md       # appendix linking codes/execN/
+├── codes/execN/              # full source per exercise + README (excluded from build)
+├── notebooks/                # runnable version of the report exercises
+└── figures/
+```
+
+- Exercise schema, in order: **Consegna** (highlighted `:::{note}` callout,
+  optional parts marked `**(Optional)**`), **Parametri**, **Implementazione**
+  (short snippets + build/run commands), **Procedura di validazione**,
+  **Risultati e plot** (numbered tables/figures with caption, units, legend),
+  **Commenti**, **Checkpoint** (2–4 bullets).
+- `riepilogo.md` table columns: exercise, key result, validation passed (sì/no),
+  open notes.
+- Every result statement is backed by data, a table or a figure; declare all
+  parameters (problem size, precision, iterations/tolerances, seeds,
+  dataset/model config, software versions).
+- Full code lives in `codes/execN/` with a README (dependencies, build/run
+  commands, default params); the report body holds only short excerpts.
 
 ## Git
 
