@@ -68,3 +68,8 @@ Acceleratori come le GPU possono fornire molte unità di calcolo e memoria propr
 Prima di ottimizzare, chiediti dove sono i dati, con quale regolarità vengono visitati e quale risorsa limita la fase misurata. Migliorare la località può ridurre i trasferimenti; aggiungere thread non aiuta se la banda di memoria è già satura. Confronta sempre il modello con misure riproducibili e documenta dimensione del problema, hardware e configurazione usata.
 
 La trattazione è una sintesi rielaborata del [capitolo originale Computing architectures](https://virgilio.mib.infn.it/~marcoce/teaching/hpc4ai/content/main/computing-architectures/index.html).
+
+(benchmark-e-misure)=
+## Misurare le prestazioni
+
+Il modello Roofline dice dove *dovrebbe* stare un programma; per sapere dove sta davvero servono misure riproducibili. La dispensa [Performance e benchmarking](../lecture03/benchmarking.md) copre metriche (time-to-solution, flop/s, banda, latenza, picco contro sostenuto), regole per misure affidabili, profiling con `perf`, picco teorico in doppia precisione e i benchmark HPL, STREAM, HPCG, Graph500 e MLPerf HPC.

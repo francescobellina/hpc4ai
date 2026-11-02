@@ -131,3 +131,8 @@ La trattazione è una sintesi rielaborata del [capitolo originale Parallel compu
 | MPI + OpenMP — ibrido | Per usare MPI tra processi e OpenMP all'interno di ciascun processo. | Simulazioni scientifiche su cluster con molti nodi e core. |
 
 **La regola pratica da ricordare:** OpenMP sfrutta il parallelismo all'interno di un processo; MPI distribuisce il lavoro tra processi; l'approccio ibrido combina i due. Non esiste un approccio sempre migliore: nei cluster si sceglie in base al programma e alle prestazioni misurate.
+
+(benchmarking-del-parallelismo)=
+## Misurare ciò che si è parallelizzato
+
+Un programma parallelo va misurato, non solo eseguito: speedup, efficienza e scalabilità dicono se i core aggiunti vengono davvero usati. La dispensa [Performance e benchmarking](benchmarking.md) tratta metriche, misure affidabili, profiling e i benchmark standard (HPL, STREAM, HPCG), con gli esempi di configurazione su WILSON e Raspberry Pi 5.

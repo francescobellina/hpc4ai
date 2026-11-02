@@ -35,6 +35,9 @@ project:
       title: Notebook — modello Roofline
   - file: content/lectures/lecture03/index.md
     title: Parallelismo e programmazione parallela
+    children:
+    - file: content/lectures/lecture03/benchmarking.md
+      title: Performance e benchmarking
   - file: content/workflow/lab-client-wilson.md
     title: Guida pratica al cluster WILSON
   - file: content/report/preparazione-laboratorio.md
@@ -52,6 +55,8 @@ project:
         title: "Esercitazione 1 — Problema di Basilea"
       - file: content/report/esercitazioni/es02-parallel-hello-world.md
         title: "Esercitazione 2 — Parallel Hello, World!"
+      - file: content/report/esercitazioni/es04-profiling-data-preparation.md
+        title: "Esercitazione 4 — Profiling e ottimizzazione"
     - file: content/report/riepilogo.md
       title: Riepilogo finale
     - file: content/report/appendice-codici.md

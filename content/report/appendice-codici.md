@@ -9,6 +9,7 @@ discussione.
 |---|---|---|
 | 1 — Problema di Basilea | [`codes/exec1/`](codes/exec1/README.md) | `basel_naive.c` — somma parziale di $\zeta(2)$, ordine e precisione a runtime |
 | 2 — Parallel Hello, World! | [`codes/exec2/`](codes/exec2/README.md) | programmi a memoria condivisa (OpenMP) e ibrido (MPI + OpenMP); script Slurm |
+| 4 — Profiling e ottimizzazione | [`codes/exec4/`](codes/exec4/README.md) | `preprocess.c` originale e `preprocess_rows.c` con i cicli di `compute_statistics` scambiati |
 
 Il notebook [`report-exercises.ipynb`](notebooks/report-exercises.ipynb) contiene
 la versione Python/NumPy dell'Esercitazione 1 (studio di convergenza e grafici) e
