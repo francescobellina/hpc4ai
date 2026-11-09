@@ -1,0 +1,270 @@
+
+========== 0. Login node ==========
+[fbellina2@wilson fbellina2]$ date
+Mon Nov  9 11:03:57 AM CET 2026
+[fbellina2@wilson fbellina2]$ hostname
+wilson.bicqcd.internal
+MODULEPATH=/etc/scl/modulefiles:/srv/software/easybuild/hmns/x86-64-v2/modules/all/Core:/etc/modulefiles:/usr/share/modulefiles:/usr/share/modulefiles/Linux:/usr/share/modulefiles/Core:/usr/share/lmod/lmod/modulefiles/Core
+
+========== 1. File di riferimento del corso ==========
+[fbellina2@wilson fbellina2]$ ls -l /srv/data/wilson/project/hpc4ai/exercises/benchmark
+total 42
+-rw-r-----. 1 marcoce hpc4ai  106 Feb 20  2015 hpcg.dat
+-rwxr-xr-x. 1 marcoce hpc4ai  957 Nov  1 21:20 HPCG_wilson_n16c1_script.sh
+-rw-r--r--. 1 marcoce hpc4ai 1840 Nov  1 21:20 HPL.dat
+-rwxr-xr-x. 1 marcoce hpc4ai  900 Nov  1 21:20 HPL_wilson_n4c4_script.sh
+[fbellina2@wilson fbellina2]$ sha256sum /srv/data/wilson/project/hpc4ai/exercises/benchmark/hpcg.dat /srv/data/wilson/project/hpc4ai/exercises/benchmark/HPCG_wilson_n16c1_script.sh /srv/data/wilson/project/hpc4ai/exercises/benchmark/HPL.dat /srv/data/wilson/project/hpc4ai/exercises/benchmark/HPL_wilson_n4c4_script.sh
+090341b7f686066be1429c16edca19bff1dee614647b18e94b7fb68ff6bc0d82  /srv/data/wilson/project/hpc4ai/exercises/benchmark/hpcg.dat
+a2b33deadf00625d8cb38aa6f6d3041e1559c6c2c2521ceaa5eb45598568a7ea  /srv/data/wilson/project/hpc4ai/exercises/benchmark/HPCG_wilson_n16c1_script.sh
+0c4a3b8bc7b23186713e7283ead78d90190e7b6d0c20ac8784e7b5cab5a95808  /srv/data/wilson/project/hpc4ai/exercises/benchmark/HPL.dat
+bc7ccf961ecd1efde38b9f811dd03ee60822663714cf68dba963632d891b2164  /srv/data/wilson/project/hpc4ai/exercises/benchmark/HPL_wilson_n4c4_script.sh
+[fbellina2@wilson fbellina2]$ cat /srv/data/wilson/project/hpc4ai/exercises/benchmark/hpcg.dat
+HPCG benchmark input file
+Sandia National Laboratories; University of Tennessee, Knoxville
+104 104 104
+60
+[fbellina2@wilson fbellina2]$ cat /srv/data/wilson/project/hpc4ai/exercises/benchmark/HPCG_wilson_n16c1_script.sh
+#!/usr/bin/bash
+#SBATCH --job-name=HPCG_single_node
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=16
+#SBATCH --cpus-per-task=1
+#SBATCH --hint=nomultithread
+#SBATCH --exclusive
+#SBATCH --mem=0
+#SBATCH --partition=wilson
+#SBATCH --time=10:00
+
+set -eo pipefail
+
+cd "$SLURM_SUBMIT_DIR"
+module load GCC/13.2.0 OpenMPI/4.1.6
+module load HPCG/3.1
+export OMP_NUM_THREADS="$SLURM_CPUS_PER_TASK"
+
+printf 'Job: %s; partition: %s; nodes: %s\n' \
+    "$SLURM_JOB_ID" "$SLURM_JOB_PARTITION" "$SLURM_JOB_NODELIST"
+printf 'Nodes: %s; MPI tasks: %s; tasks per node: %s\n' \
+    "$SLURM_JOB_NUM_NODES" "$SLURM_NTASKS" "$SLURM_TASKS_PER_NODE"
+printf 'CPUs per task: %s; OpenMP threads per task: %s\n' \
+    "$SLURM_CPUS_PER_TASK" "$OMP_NUM_THREADS"
+module list 2>&1
+
+# Required workaround for the WILSON MPI launch environment.
+export PMIX_MCA_psec=^munge
+srun --cpu-bind=verbose --cpus-per-task="$SLURM_CPUS_PER_TASK" xhpcg
+[fbellina2@wilson fbellina2]$ cat /srv/data/wilson/project/hpc4ai/exercises/benchmark/HPL.dat
+HPLinpack benchmark input file
+Innovative Computing Laboratory, University of Tennessee
+HPL.out                             # output file name (if any)
+6                                   # device out (6=stdout,7=stderr,file)
+1                                   # of problems sizes (N)
+12288                               # Ns
+1                                   # of NBs
+192                                 # NBs
+0                                   # PMAP process mapping (0=Row-,1=Column-major)
+1                                   # of process grids (P x Q)
+2                                   # Ps
+2                                   # Qs
+16.0                                # threshold
+1                                   # of panel fact
+2                                   # PFACTs (0=left, 1=Crout, 2=Right)
+1                                   # of recursive stopping criterium
+4                                   # NBMINs (>= 1)
+1                                   # of panels in recursion
+2                                   # NDIVs
+1                                   # of recursive panel fact.
+1                                   # RFACTs (0=left, 1=Crout, 2=Right)
+1                                   # of broadcast
+1                                   # BCASTs (0=1rg,1=1rM,2=2rg,3=2rM,4=Lng,5=LnM)
+1                                   # of lookahead depth
+1                                   # DEPTHs (>=0)
+2                                   # SWAP (0=bin-exch,1=long,2=mix)
+64                                  # swapping threshold
+0                                   # L1 in (0=transposed,1=no-transposed) form
+0                                   # U  in (0=transposed,1=no-transposed) form
+1                                   # Equilibration (0=no,1=yes)
+16                                  # memory alignment in double (> 0)
+[fbellina2@wilson fbellina2]$ cat /srv/data/wilson/project/hpc4ai/exercises/benchmark/HPL_wilson_n4c4_script.sh
+#!/usr/bin/bash
+#SBATCH --job-name=HPL_single_node
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=4
+#SBATCH --cpus-per-task=4
+#SBATCH --hint=nomultithread
+#SBATCH --distribution=block:block
+#SBATCH --exclusive
+#SBATCH --mem=0
+#SBATCH --partition=wilson
+#SBATCH --time=4:00:00
+
+set -eo pipefail
+
+cd "$SLURM_SUBMIT_DIR"
+module load GCC/13.2.0 OpenMPI/4.1.6
+module load HPL/2.3
+export OMP_NUM_THREADS="$SLURM_CPUS_PER_TASK"
+
+printf 'Job: %s; partition: %s; nodes: %s\n' \
+    "$SLURM_JOB_ID" "$SLURM_JOB_PARTITION" "$SLURM_JOB_NODELIST"
+printf 'Nodes: %s; MPI tasks: %s; tasks per node: %s\n' \
+    "$SLURM_JOB_NUM_NODES" "$SLURM_NTASKS" "$SLURM_TASKS_PER_NODE"
+printf 'CPUs per task: %s; OpenMP threads per task: %s\n' \
+    "$SLURM_CPUS_PER_TASK" "$OMP_NUM_THREADS"
+module list 2>&1
+srun --cpu-bind=verbose --cpus-per-task="$SLURM_CPUS_PER_TASK" xhpl
+
+========== 2. Partizioni e nodi ==========
+[fbellina2@wilson fbellina2]$ sinfo -p wilson,wilson2,lab4 -o %P %a %l %D %c %m %f %N
+PARTITION AVAIL TIMELIMIT NODES CPUS MEMORY AVAIL_FEATURES NODELIST
+wilson up infinite 8 32 62500 sandy_bridge wnode[01-08]
+wilson up infinite 4 32 62500 ivy_bridge wnode[09-12]
+wilson up infinite 8 32 62500 haswell wnode[13-20]
+wilson2 up infinite 4 64 125000 broadwell wnode[21-24]
+wilson2 up infinite 4 64 125000 quanta wnode[25-28]
+wilson2 up infinite 4 64 125000 cascade_lake wnode[29-32]
+lab4 up infinite 8 32 62500 sandy_bridge wnode[01-08]
+lab4 up infinite 4 32 62500 ivy_bridge wnode[09-12]
+lab4 up infinite 8 32 62500 haswell wnode[13-20]
+lab4 up infinite 4 64 125000 broadwell wnode[21-24]
+lab4 up infinite 4 64 125000 quanta wnode[25-28]
+lab4 up infinite 4 64 125000 cascade_lake wnode[29-32]
+[fbellina2@wilson fbellina2]$ sinfo -N -p lab4 -o %N %P %c %m %f %T
+NODELIST PARTITION CPUS MEMORY AVAIL_FEATURES STATE
+wnode01 lab4 32 62500 sandy_bridge idle
+wnode02 lab4 32 62500 sandy_bridge allocated
+wnode03 lab4 32 62500 sandy_bridge idle
+wnode04 lab4 32 62500 sandy_bridge idle
+wnode05 lab4 32 62500 sandy_bridge idle
+wnode06 lab4 32 62500 sandy_bridge idle
+wnode07 lab4 32 62500 sandy_bridge idle
+wnode08 lab4 32 62500 sandy_bridge idle
+wnode09 lab4 32 62500 ivy_bridge idle
+wnode10 lab4 32 62500 ivy_bridge idle
+wnode11 lab4 32 62500 ivy_bridge idle
+wnode12 lab4 32 62500 ivy_bridge idle
+wnode13 lab4 32 62500 haswell idle
+wnode14 lab4 32 62500 haswell idle
+wnode15 lab4 32 62500 haswell idle
+wnode16 lab4 32 62500 haswell idle
+wnode17 lab4 32 62500 haswell idle
+wnode18 lab4 32 62500 haswell idle
+wnode19 lab4 32 62500 haswell idle
+wnode20 lab4 32 62500 haswell idle
+wnode21 lab4 64 125000 broadwell idle
+wnode22 lab4 64 125000 broadwell idle
+wnode23 lab4 64 125000 broadwell idle
+wnode24 lab4 64 125000 broadwell inval
+wnode25 lab4 64 125000 quanta idle
+wnode26 lab4 64 125000 quanta idle
+wnode27 lab4 64 125000 quanta idle
+wnode28 lab4 64 125000 quanta idle
+wnode29 lab4 64 125000 cascade_lake idle
+wnode30 lab4 64 125000 cascade_lake idle
+wnode31 lab4 64 125000 cascade_lake idle
+wnode32 lab4 64 125000 cascade_lake idle
+
+========== 3. Moduli ==========
+[fbellina2@wilson fbellina2]$ module spider HPL
+
+------------------------------------------------------------------------------------------------------------------------------------
+  HPL: HPL/2.3
+------------------------------------------------------------------------------------------------------------------------------------
+    Description:
+      HPL is a software package that solves a (random) dense linear system in double precision (64 bits) arithmetic on
+      distributed-memory computers. It can thus be regarded as a portable as well as freely available implementation of the High
+      Performance Computing Linpack Benchmark.
+
+
+    You will need to load all module(s) on any one of the lines below before the "HPL/2.3" module is available to load.
+
+      GCC/13.2.0  OpenMPI/4.1.6
+ 
+    Help:
+      
+      Description
+      ===========
+      HPL is a software package that solves a (random) dense linear system in double precision (64 bits)
+       arithmetic on distributed-memory computers. It can thus be regarded as a portable as well as freely available
+       implementation of the High Performance Computing Linpack Benchmark.
+      
+      
+      More information
+      ================
+       - Homepage: https://www.netlib.org/benchmark/hpl/
+      
+
+
+ 
+
+[fbellina2@wilson fbellina2]$ module spider HPCG
+
+------------------------------------------------------------------------------------------------------------------------------------
+  HPCG: HPCG/3.1
+------------------------------------------------------------------------------------------------------------------------------------
+    Description:
+      The HPCG Benchmark project is an effort to create a more relevant metric for ranking HPC systems than the High Performance
+      LINPACK (HPL) benchmark, that is currently used by the TOP500 benchmark.
+
+
+    You will need to load all module(s) on any one of the lines below before the "HPCG/3.1" module is available to load.
+
+      GCC/13.2.0  OpenMPI/4.1.6
+ 
+    Help:
+      
+      Description
+      ===========
+      The HPCG Benchmark project is an effort to create a more relevant metric for ranking HPC systems than
+       the High Performance LINPACK (HPL) benchmark, that is currently used by the TOP500 benchmark.
+      
+      
+      More information
+      ================
+       - Homepage: https://software.sandia.gov/hpcg
+      
+
+
+ 
+
+
+========== 4. Cartelle di lavoro in /srv/data/wilson/students/home/fbellina2/es05 ==========
+[fbellina2@wilson fbellina2]$ ls -l /srv/data/wilson/students/home/fbellina2/es05/reference /srv/data/wilson/students/home/fbellina2/es05/hpl/00_baseline /srv/data/wilson/students/home/fbellina2/es05/hpcg/00_baseline
+/srv/data/wilson/students/home/fbellina2/es05/hpcg/00_baseline:
+total 1
+-rw-r-----. 1 fbellina2 users 106 Nov  9 11:03 hpcg.dat
+-rwxr-xr-x. 1 fbellina2 users 957 Nov  9 11:03 HPCG_wilson_n16c1_script.sh
+
+/srv/data/wilson/students/home/fbellina2/es05/hpl/00_baseline:
+total 1
+-rw-r--r--. 1 fbellina2 users 1840 Nov  9 11:03 HPL.dat
+-rwxr-xr-x. 1 fbellina2 users  900 Nov  9 11:03 HPL_wilson_n4c4_script.sh
+
+/srv/data/wilson/students/home/fbellina2/es05/reference:
+total 2
+-rw-r-----. 1 fbellina2 users  106 Nov  9 11:03 hpcg.dat
+-rwxr-xr-x. 1 fbellina2 users  957 Nov  9 11:03 HPCG_wilson_n16c1_script.sh
+-rw-r--r--. 1 fbellina2 users 1840 Nov  9 11:03 HPL.dat
+-rwxr-xr-x. 1 fbellina2 users  900 Nov  9 11:03 HPL_wilson_n4c4_script.sh
+
+========== 5. CPU dei due tipi di nodo (job brevi, raccolti da collect) ==========
+[fbellina2@wilson nodeinfo]$ sbatch -p wilson -N 1 -n 1 --mem=1G -t 00:02:00 -o lscpu_wilson.%j.out --wrap 'hostname; lscpu'
+Submitted batch job 61219
+[fbellina2@wilson nodeinfo]$ sbatch -p wilson2 -N 1 -n 1 --mem=1G -t 00:02:00 -o lscpu_wilson2.%j.out --wrap 'hostname; lscpu'
+Submitted batch job 61220
+
+========== 6. Baseline con i file del corso non modificati ==========
+[fbellina2@wilson 00_baseline]$ sbatch --parsable ./HPL_wilson_n4c4_script.sh
+job 61221
+[fbellina2@wilson 00_baseline]$ sbatch --parsable ./HPCG_wilson_n16c1_script.sh
+job 61222
+[fbellina2@wilson fbellina2]$ squeue -u fbellina2
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+             61222    wilson HPCG_sin fbellina PD       0:00      1 (Priority)
+             61221    wilson HPL_sing fbellina PD       0:00      1 (None)
+             61219    wilson     wrap fbellina  R       0:00      1 wnode01
+             61220   wilson2     wrap fbellina  R       0:00      1 wnode21

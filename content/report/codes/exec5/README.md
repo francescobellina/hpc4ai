@@ -7,7 +7,7 @@ parallelizzazione su un nodo, scaling, confronto con il picco teorico.
 
 | File | Scopo |
 |---|---|
-| `es05.sh` | ricognizione, cartelle di lavoro, invio delle baseline e raccolta di input, output e `sacct` |
+| `es05.sh` | ricognizione, baseline, serie di run (una cartella per configurazione) e raccolta di input, output e `sacct` con tabella riassuntiva |
 
 ## Riferimenti del corso
 
@@ -22,8 +22,12 @@ locale e durata richiesta di 60 s.
 
 ```bash
 bash es05.sh setup     # una volta sola
+bash es05.sh node      # confronto delle ripartizioni MPI x OpenMP su un nodo
 bash es05.sh collect   # quando i job sono finiti (squeue vuoto)
 ```
+
+Tutte le serie usano `--constraint=sandy_bridge`: la partizione `wilson` contiene
+nodi Sandy Bridge, Ivy Bridge e Haswell, che non vanno mescolati in una curva.
 
 `setup` stampa i file di riferimento, lo stato delle partizioni `wilson`,
 `wilson2` e `lab4` e `module spider` di HPL e HPCG, copia i file in `~/es05/` e
@@ -32,8 +36,18 @@ HPCG con i file del corso non modificati, ognuna nella sua cartella
 (`~/es05/hpl/00_baseline`, `~/es05/hpcg/00_baseline`). Non reinvia una cartella che
 ha già un `.jobid`.
 
+`node` crea e invia, ognuna nella sua cartella, le configurazioni su un nodo da 16
+core: HPL a N = 24576 con il layout della baseline e, a N = 41280 fisso, le
+ripartizioni 16×1 (griglie 4×4, 2×8, 1×16), 8×2, 4×4, 2×8 e 1×16 (task MPI ×
+thread); HPCG a griglia globale fissa 416×208×208 con 16×1, 8×2, 4×4, 2×8 e 1×16.
+Le cartelle copiano i file del corso cambiando solo `N`, `P`, `Q` (righe 6, 11 e 12
+di `HPL.dat`), la griglia locale (riga 3 di `hpcg.dat`), le righe `#SBATCH` del
+layout, il nome del job, il tempo e il vincolo sul nodo; il log mostra il `diff`
+di ogni file rispetto al riferimento.
+
 `collect` scrive, per ogni cartella con un job: input, script batch, riga `sacct`
 (stato, exit code, tempo), output completi, righe `WR...`/`PASSED` di HPL e
-`Final Summary` di HPCG.
+`Final Summary` di HPCG; in fondo una tabella con un run per riga (nodo, layout,
+GFLOP/s, frazione del picco dei core allocati, validazione).
 
 Entrambi scrivono il log in `~/es05/logs/<sottocomando>_<data>.txt`.
