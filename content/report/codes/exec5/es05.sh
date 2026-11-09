@@ -4,6 +4,8 @@
 #   bash es05.sh setup     # ricognizione, copia dei file del corso, baseline
 #   bash es05.sh node      # confronto delle ripartizioni MPI x OpenMP su un nodo
 #   bash es05.sh repeat    # run 2 e 3 delle ripartizioni HPL, frequenza effettiva
+#   bash es05.sh hpl-scaling    # HPL strong e memory-scaled fino a 8 nodi
+#   bash es05.sh hpcg-scaling   # HPCG weak e strong fino a 8 nodi
 #   bash es05.sh collect   # raccoglie input, output e sacct di tutti i run
 #
 # Va eseguito sul login node. Lavora in ~/es05/: una cartella per configurazione
@@ -19,6 +21,10 @@ SACCT_FMT=JobID,JobName%24,Partition,NodeList%24,NNodes,NTasks,AllocCPUS,ReqMem,
 # generazioni di CPU. Sandy Bridge E5-2650: 2.0 GHz x 8 flop/ciclo (AVX senza FMA).
 CONSTRAINT=sandy_bridge
 PEAK_CORE=16
+# Layout HPL per nodo negli studi di scaling: thread per processo MPI (16 core per
+# nodo). 2 processi x 8 thread (uno per socket) è il migliore nel confronto su un
+# nodo: 260.3 +- 3.1 GFLOP/s su 3 run (job 61285, 61340, 61341).
+HPL_TPR=8
 
 section() { printf '\n========== %s ==========\n' "$*"; }
 # cmd stampa il comando dopo un prompt reale (utente, macchina, cartella) e lo esegue.
@@ -211,6 +217,80 @@ do_repeat() {
     cmd squeue -u "${USER:-$(id -un)}"
 }
 
+# grid <processi> -> "P Q" quasi quadrata con Q >= P (processi in potenze di 2).
+grid() { awk -v r="$1" 'BEGIN { p = 1; while ((2 * p) * (2 * p) <= r) p *= 2; print p, r / p }'; }
+# shape3 <processi> -> "npx npy npz" come la sceglie HPCG (x >= y >= z).
+shape3() {
+    case $1 in
+        1) echo "1 1 1" ;; 2) echo "2 1 1" ;; 4) echo "2 2 1" ;; 8) echo "2 2 2" ;;
+        16) echo "4 2 2" ;; 32) echo "4 4 2" ;; 64) echo "4 4 4" ;; 128) echo "8 4 4" ;;
+    esac
+}
+
+# Scaling di HPL con il layout per nodo HPL_TPR (thread per processo MPI).
+do_hpl_scaling() {
+    section "0. Nodi $CONSTRAINT"
+    cmd date
+    cmd sinfo -N -p wilson -o "%N %c %m %f %T"
+    local c nodes rpn tpr ranks P Q N k t
+
+    section "1. HPL strong scaling: N = 41280 fisso, da 1 core a 8 nodi ($HPL_TPR thread per processo)"
+    for c in 1 2 4 8 16 32 64 128; do
+        if [ "$c" -le 16 ]; then
+            nodes=1; tpr=$(( c < HPL_TPR ? c : HPL_TPR )); rpn=$(( c / tpr ))
+        else
+            nodes=$(( c / 16 )); tpr=$HPL_TPR; rpn=$(( 16 / tpr ))
+        fi
+        ranks=$(( nodes * rpn ))
+        read -r P Q <<<"$(grid "$ranks")"
+        case $c in 1) t=02:00:00 ;; 2) t=01:30:00 ;; 4) t=01:00:00 ;; *) t=00:30:00 ;; esac
+        hpl_case "$(printf 'S%03d' "$c")_N41280_n${nodes}_${rpn}x${tpr}_P${P}Q${Q}" 41280 "$P" "$Q" "$nodes" "$rpn" "$tpr" "$t"
+    done
+
+    section "2. HPL memory-scaled: N proporzionale a sqrt(p), memoria per processo costante"
+    echo "Il punto a 1 nodo coincide con il run strong a 16 core (N = 41280)."
+    tpr=$HPL_TPR; rpn=$(( 16 / tpr ))
+    for k in 2 4 8; do
+        case $k in 2) N=58368 ;; 4) N=82560 ;; 8) N=116736 ;; esac
+        read -r P Q <<<"$(grid $(( k * rpn )))"
+        hpl_case "M$(printf '%02d' "$k")_N${N}_n${k}_${rpn}x${tpr}_P${P}Q${Q}" "$N" "$P" "$Q" "$k" "$rpn" "$tpr" 01:00:00
+    done
+
+    section "3. HPL su un nodo con N grande (circa 51 GiB): miglior risultato per il confronto con il picco"
+    read -r P Q <<<"$(grid "$rpn")"
+    hpl_case "R01_N82560_n1_${rpn}x${tpr}_P${P}Q${Q}" 82560 "$P" "$Q" 1 "$rpn" "$tpr" 01:00:00
+
+    echo
+    cmd squeue -u "${USER:-$(id -un)}"
+}
+
+# Scaling di HPCG con 16 processi MPI x 1 thread per nodo (migliore su un nodo).
+do_hpcg_scaling() {
+    section "0. Nodi $CONSTRAINT"
+    cmd date
+    cmd sinfo -N -p wilson -o "%N %c %m %f %T"
+    local p nodes rpn sx sy sz
+
+    section "1. HPCG weak scaling: griglia locale 104 x 104 x 104 fissa, 60 s"
+    echo "Il punto a 16 processi coincide con hpcg/10_16x1."
+    for p in 1 2 4 8 32 64 128; do
+        if [ "$p" -le 16 ]; then nodes=1; rpn=$p; else nodes=$(( p / 16 )); rpn=16; fi
+        read -r sx sy sz <<<"$(shape3 "$p")"
+        hpcg_case "W$(printf '%03d' "$p")_n${nodes}_${rpn}x1" "$nodes" "$rpn" 1 "104 104 104" "$sx" "$sy" "$sz" 00:30:00
+    done
+
+    section "2. HPCG strong scaling: griglia globale 256 x 256 x 256 fissa, 60 s"
+    for p in 1 2 4 8 16 32 64 128; do
+        if [ "$p" -le 16 ]; then nodes=1; rpn=$p; else nodes=$(( p / 16 )); rpn=16; fi
+        read -r sx sy sz <<<"$(shape3 "$p")"
+        hpcg_case "S$(printf '%03d' "$p")_n${nodes}_${rpn}x1" "$nodes" "$rpn" 1 \
+            "$(( 256 / sx )) $(( 256 / sy )) $(( 256 / sz ))" "$sx" "$sy" "$sz" 01:30:00
+    done
+
+    echo
+    cmd squeue -u "${USER:-$(id -un)}"
+}
+
 # Tabella finale: un run per riga, con la frazione del picco dei core usati.
 summary() {
     section "RIEPILOGO"
@@ -288,7 +368,8 @@ do_collect() {
 
 case "${1:-}" in
     setup|node|repeat|collect) ;;
-    *) echo "Uso: bash es05.sh setup | node | repeat | collect" >&2; exit 1 ;;
+    hpl-scaling|hpcg-scaling) set -- "${1//-/_}" ;;
+    *) echo "Uso: bash es05.sh setup | node | repeat | hpl-scaling | hpcg-scaling | collect" >&2; exit 1 ;;
 esac
 command -v sbatch >/dev/null || { echo "Errore: sbatch non trovato, non sei su WILSON?" >&2; exit 1; }
 mkdir -p "$ES/logs"

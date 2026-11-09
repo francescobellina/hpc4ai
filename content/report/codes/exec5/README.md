@@ -24,6 +24,8 @@ locale e durata richiesta di 60 s.
 bash es05.sh setup     # una volta sola
 bash es05.sh node      # confronto delle ripartizioni MPI x OpenMP su un nodo
 bash es05.sh repeat    # run 2 e 3 delle ripartizioni HPL, frequenza effettiva
+bash es05.sh hpl-scaling    # HPL strong e memory-scaled fino a 8 nodi
+bash es05.sh hpcg-scaling   # HPCG weak e strong fino a 8 nodi
 bash es05.sh collect   # quando i job sono finiti (squeue vuoto)
 ```
 
@@ -52,6 +54,17 @@ giro ha usato un nodo diverso per ogni layout. Un run 2×8 in più
 (`17_N41280_2x8_P1Q2_perf`) esegue `xhpl` sotto `perf stat -e cycles,task-clock`
 per misurare la frequenza di clock effettiva (`perfstat.<rank>.txt`), necessaria
 per il picco teorico.
+
+`hpl-scaling` usa il layout per nodo fissato in `HPL_TPR` (thread per processo
+MPI): strong scaling a N = 41280 da 1 core a 8 nodi (cartelle `S<core>_...`; sotto
+`HPL_TPR` core un solo processo con un thread per core), memory-scaled con
+N = 41280·√k su k = 2, 4, 8 nodi (`M<nodi>_...`; il punto a 1 nodo è `S016`) e un
+run su un nodo a N = 82560 (`R01_...`) per il confronto con il picco.
+
+`hpcg-scaling` usa 16 processi × 1 thread per nodo: weak scaling con griglia locale
+104³ da 1 a 128 processi (`W<proc>_...`; il punto a 16 è `10_16x1`) e strong
+scaling con griglia globale 256³ (`S<proc>_...`), con griglie locali multiple di 8
+e griglia dei processi passata con `--npx/--npy/--npz`.
 
 `collect` scrive, per ogni cartella con un job: input, script batch, riga `sacct`
 (stato, exit code, tempo), output completi, righe `WR...`/`PASSED` di HPL e
