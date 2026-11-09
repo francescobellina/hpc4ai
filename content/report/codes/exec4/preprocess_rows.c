@@ -30,9 +30,7 @@ static void generate_data(double *data, size_t n, size_t d)
                           + (double)(j % 11);
 }
 
-/* Population means and inverse standard deviations, one per feature.
- * Same two-pass algorithm as preprocess.c, but the loops are swapped so that
- * consecutive accesses are contiguous in the row-major array. */
+/* Population means and inverse standard deviations, one per feature. CHANGED */
 static void compute_statistics(const double *data, size_t n, size_t d,
                                double *mean, double *scale)
 {
@@ -54,7 +52,6 @@ static void compute_statistics(const double *data, size_t n, size_t d,
     for (size_t j = 0; j < d; ++j)
         scale[j] = 1.0 / sqrt(scale[j] / (double)n + 1e-12);
 }
-
 /* Apply the supplied statistics to the working data in place. */
 static void standardize(double *data, size_t n, size_t d,
                         const double *mean, const double *scale)
@@ -161,3 +158,5 @@ int main(int argc, char **argv)
     free(data); free(original);
     return EXIT_SUCCESS;
 }
+
+

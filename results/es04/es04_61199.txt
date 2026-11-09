@@ -1,0 +1,386 @@
+Esercitazione 4 — output completo del job 61199
+
+========== 0. Build sul login node ==========
+[fbellina2@wilson profiling-data-preparation]$ date
+Mon Nov  9 10:10:57 AM CET 2026
+[fbellina2@wilson profiling-data-preparation]$ hostname
+wilson.bicqcd.internal
+[fbellina2@wilson profiling-data-preparation]$ pwd
+/srv/data/wilson/students/home/fbellina2/profiling-data-preparation
+[fbellina2@wilson profiling-data-preparation]$ gcc --version
+gcc (GCC) 11.5.0 20240719 (Red Hat 11.5.0-14)
+Copyright (C) 2021 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+[fbellina2@wilson profiling-data-preparation]$ sha256sum preprocess.c preprocess_rows.c
+084c5538133ad0ce9c55e157de465d9b678bd253505b3a5a28b76b2ca67c2b55  preprocess.c
+819b8f0adc76342c5bba7ba396a6d9f7ea7928628c27140d40be8c0a76e07874  preprocess_rows.c
+[fbellina2@wilson profiling-data-preparation]$ cmp preprocess.c /srv/data/wilson/project/hpc4ai/exercises/profiling-data-preparation/preprocess.c
+preprocess.c identico alla copia condivisa del corso
+[fbellina2@wilson profiling-data-preparation]$ gcc -O2 -g -fno-inline -fno-omit-frame-pointer -Wall -Wextra preprocess.c -lm -o preprocess
+[fbellina2@wilson profiling-data-preparation]$ gcc -O2 -g -fno-inline -fno-omit-frame-pointer -Wall -Wextra preprocess_rows.c -lm -o preprocess_rows
+
+========== 1. Nodo di calcolo e allocazione ==========
+[fbellina2@wnode25 profiling-data-preparation]$ date
+Mon Nov  9 10:10:58 AM CET 2026
+[fbellina2@wnode25 profiling-data-preparation]$ hostname
+wnode25
+Slurm: job=61199 partizione=lab4 nodi=wnode25 cpus-per-task=1
+[fbellina2@wnode25 profiling-data-preparation]$ lscpu
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           46 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  64
+On-line CPU(s) list:                     0-63
+Vendor ID:                               GenuineIntel
+Model name:                              Intel(R) Xeon(R) CPU E5-2683 v4 @ 2.10GHz
+CPU family:                              6
+Model:                                   79
+Thread(s) per core:                      2
+Core(s) per socket:                      16
+Socket(s):                               2
+Stepping:                                1
+CPU(s) scaling MHz:                      99%
+CPU max MHz:                             3000.0000
+CPU min MHz:                             1200.0000
+BogoMIPS:                                4190.45
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb cat_l3 cdp_l3 pti intel_ppin ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm cqm rdt_a rdseed adx smap intel_pt xsaveopt cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local dtherm ida arat pln pts vnmi md_clear flush_l1d
+Virtualization:                          VT-x
+L1d cache:                               1 MiB (32 instances)
+L1i cache:                               1 MiB (32 instances)
+L2 cache:                                8 MiB (32 instances)
+L3 cache:                                80 MiB (2 instances)
+NUMA node(s):                            2
+NUMA node0 CPU(s):                       0-15,32-47
+NUMA node1 CPU(s):                       16-31,48-63
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             KVM: Mitigation: Split huge pages
+Vulnerability L1tf:                      Mitigation; PTE Inversion; VMX conditional cache flushes, SMT vulnerable
+Vulnerability Mds:                       Mitigation; Clear CPU buffers; SMT vulnerable
+Vulnerability Meltdown:                  Mitigation; PTI
+Vulnerability Mmio stale data:           Mitigation; Clear CPU buffers; SMT vulnerable
+Vulnerability Old microcode:             Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP conditional; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Mitigation; Clear CPU buffers; SMT vulnerable
+Vulnerability Vmscape:                   Mitigation; IBPB before exit to userspace
+[fbellina2@wnode25 profiling-data-preparation]$ getconf LEVEL1_DCACHE_LINESIZE
+64
+[fbellina2@wnode25 profiling-data-preparation]$ perf --version
+perf version 5.14.0-687.61.1.el9_8.x86_64
+[fbellina2@wnode25 profiling-data-preparation]$ /usr/bin/time --version
+time (GNU Time) 1.9
+Copyright (C) 2018 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by David Keppel, David MacKenzie, and Assaf Gordon.
+
+========== 2. Validazione (modalità check) ==========
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores ./preprocess 1024 32 1 check
+Observations: 1024; features: 32; repeats: 1
+Checksum: 8173.5024171285777
+Validation: PASS (max |mean| 2.418e-14; max variance error 1.217e-11)
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores ./preprocess_rows 1024 32 1 check
+Observations: 1024; features: 32; repeats: 1
+Checksum: 8173.5024171285777
+Validation: PASS (max |mean| 2.418e-14; max variance error 1.217e-11)
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores ./preprocess 65536 256 1 check
+Observations: 65536; features: 256; repeats: 1
+Checksum: 452271.54382956069
+Validation: PASS (max |mean| 1.147e-14; max variance error 1.211e-11)
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores ./preprocess_rows 65536 256 1 check
+Observations: 65536; features: 256; repeats: 1
+Checksum: 452271.54382956069
+Validation: PASS (max |mean| 1.147e-14; max variance error 1.211e-11)
+
+========== 3. Checksum su una dimensione diversa (100000 256 5) ==========
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores ./preprocess 100000 256 5
+Observations: 100000; features: 256; repeats: 5
+Checksum: 3450862.5211855676
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores ./preprocess_rows 100000 256 5
+Observations: 100000; features: 256; repeats: 5
+Checksum: 3450862.5211855676
+
+========== 4. Timing: 3 run per versione, alternate (65536 256 5) ==========
+Ogni run è misurata insieme dal time di bash (ms) e da GNU time (cs, più user/sys/max RSS).
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores bash -c "TIMEFORMAT='bash time: %R s'; time /usr/bin/time -f 'GNU time: %e s elapsed, %U s user, %S s sys, %M KB max RSS' ./preprocess 65536 256 5"    # run 1
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+GNU time: 1.90 s elapsed, 1.83 s user, 0.05 s sys, 264064 KB max RSS
+bash time: 1.909 s
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores bash -c "TIMEFORMAT='bash time: %R s'; time /usr/bin/time -f 'GNU time: %e s elapsed, %U s user, %S s sys, %M KB max RSS' ./preprocess_rows 65536 256 5"    # run 1
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+GNU time: 0.49 s elapsed, 0.43 s user, 0.05 s sys, 264216 KB max RSS
+bash time: 0.496 s
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores bash -c "TIMEFORMAT='bash time: %R s'; time /usr/bin/time -f 'GNU time: %e s elapsed, %U s user, %S s sys, %M KB max RSS' ./preprocess 65536 256 5"    # run 2
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+GNU time: 1.90 s elapsed, 1.83 s user, 0.05 s sys, 264332 KB max RSS
+bash time: 1.904 s
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores bash -c "TIMEFORMAT='bash time: %R s'; time /usr/bin/time -f 'GNU time: %e s elapsed, %U s user, %S s sys, %M KB max RSS' ./preprocess_rows 65536 256 5"    # run 2
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+GNU time: 0.49 s elapsed, 0.43 s user, 0.06 s sys, 263760 KB max RSS
+bash time: 0.499 s
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores bash -c "TIMEFORMAT='bash time: %R s'; time /usr/bin/time -f 'GNU time: %e s elapsed, %U s user, %S s sys, %M KB max RSS' ./preprocess 65536 256 5"    # run 3
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+GNU time: 1.90 s elapsed, 1.83 s user, 0.05 s sys, 263904 KB max RSS
+bash time: 1.903 s
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores bash -c "TIMEFORMAT='bash time: %R s'; time /usr/bin/time -f 'GNU time: %e s elapsed, %U s user, %S s sys, %M KB max RSS' ./preprocess_rows 65536 256 5"    # run 3
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+GNU time: 0.49 s elapsed, 0.43 s user, 0.06 s sys, 264140 KB max RSS
+bash time: 0.498 s
+
+========== 5. Profili perf record / perf report (65536 256 30) ==========
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores perf record -e cpu-clock:u -F 99 -g -o es04_run_20261109_101057/perf-before.data ./preprocess 65536 256 30
+Observations: 65536; features: 256; repeats: 30
+Checksum: 13568146.314903667
+[ perf record: Woken up 1 times to write data ]
+[ perf record: Captured and wrote 0.084 MB es04_run_20261109_101057/perf-before.data (1067 samples) ]
+[fbellina2@wnode25 profiling-data-preparation]$ perf report --stdio -i es04_run_20261109_101057/perf-before.data
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 1K of event 'cpu-clock:u'
+# Event count (approx.): 10777777670
+#
+# Children      Self  Command     Shared Object  Symbol                              
+# ........  ........  ..........  .............  ....................................
+#
+   100.00%     0.00%  preprocess  libc.so.6      [.] __libc_start_call_main
+            |
+            ---__libc_start_call_main
+               |          
+               |--87.07%--main
+               |          |          
+               |           --86.79%--compute_statistics
+               |          
+               |--5.06%--compute_scores
+               |          
+               |--4.40%--standardize
+               |          
+                --3.47%--__memmove_avx_unaligned_erms_rtm
+
+    87.07%     0.00%  preprocess  preprocess     [.] main
+            |
+            ---main
+               |          
+                --86.79%--compute_statistics
+
+    86.79%    86.79%  preprocess  preprocess     [.] compute_statistics
+            |
+            ---__libc_start_call_main
+               main
+               compute_statistics
+
+     5.06%     5.06%  preprocess  preprocess     [.] compute_scores
+            |
+            ---__libc_start_call_main
+               compute_scores
+
+     4.40%     4.40%  preprocess  preprocess     [.] standardize
+            |
+            ---__libc_start_call_main
+               standardize
+
+     3.47%     3.47%  preprocess  libc.so.6      [.] __memmove_avx_unaligned_erms_rtm
+            |
+            ---__libc_start_call_main
+               __memmove_avx_unaligned_erms_rtm
+
+     0.28%     0.28%  preprocess  preprocess     [.] generate_data
+
+
+#
+# (Tip: Limit to show entries above 5% only: perf report --percent-limit 5)
+#
+[fbellina2@wnode25 profiling-data-preparation]$ perf report --stdio --no-children -g none -i es04_run_20261109_101057/perf-before.data
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 1K of event 'cpu-clock:u'
+# Event count (approx.): 10777777670
+#
+# Overhead  Command     Shared Object  Symbol                              
+# ........  ..........  .............  ....................................
+#
+    86.79%  preprocess  preprocess     [.] compute_statistics
+     5.06%  preprocess  preprocess     [.] compute_scores
+     4.40%  preprocess  preprocess     [.] standardize
+     3.47%  preprocess  libc.so.6      [.] __memmove_avx_unaligned_erms_rtm
+     0.28%  preprocess  preprocess     [.] generate_data
+
+
+#
+# (Tip: Limit to show entries above 5% only: perf report --percent-limit 5)
+#
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores perf record -e cpu-clock:u -F 99 -g -o es04_run_20261109_101057/perf-after.data ./preprocess_rows 65536 256 30
+Observations: 65536; features: 256; repeats: 30
+Checksum: 13568146.314903667
+[ perf record: Woken up 1 times to write data ]
+[ perf record: Captured and wrote 0.021 MB es04_run_20261109_101057/perf-after.data (239 samples) ]
+[fbellina2@wnode25 profiling-data-preparation]$ perf report --stdio -i es04_run_20261109_101057/perf-after.data
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 239  of event 'cpu-clock:u'
+# Event count (approx.): 2414141390
+#
+# Children      Self  Command          Shared Object    Symbol                              
+# ........  ........  ...............  ...............  ....................................
+#
+   100.00%     0.00%  preprocess_rows  libc.so.6        [.] __libc_start_call_main
+            |
+            ---__libc_start_call_main
+               |          
+               |--39.33%--main
+               |          |          
+               |          |--37.24%--compute_statistics
+               |          |          
+               |           --2.09%--generate_data
+               |          
+               |--21.34%--compute_scores
+               |          
+               |--20.92%--standardize
+               |          
+                --18.41%--__memmove_avx_unaligned_erms_rtm
+
+    39.33%     0.00%  preprocess_rows  preprocess_rows  [.] main
+            |
+            ---main
+               |          
+               |--37.24%--compute_statistics
+               |          
+                --2.09%--generate_data
+
+    37.24%    37.24%  preprocess_rows  preprocess_rows  [.] compute_statistics
+            |
+            ---__libc_start_call_main
+               main
+               compute_statistics
+
+    21.34%    21.34%  preprocess_rows  preprocess_rows  [.] compute_scores
+            |
+            ---__libc_start_call_main
+               compute_scores
+
+    20.92%    20.92%  preprocess_rows  preprocess_rows  [.] standardize
+            |
+            ---__libc_start_call_main
+               standardize
+
+    18.41%    18.41%  preprocess_rows  libc.so.6        [.] __memmove_avx_unaligned_erms_rtm
+            |
+            ---__libc_start_call_main
+               __memmove_avx_unaligned_erms_rtm
+
+     2.09%     2.09%  preprocess_rows  preprocess_rows  [.] generate_data
+            |
+            ---__libc_start_call_main
+               main
+               generate_data
+
+
+
+#
+# (Tip: To not record events from perf itself add --exclude-perf)
+#
+[fbellina2@wnode25 profiling-data-preparation]$ perf report --stdio --no-children -g none -i es04_run_20261109_101057/perf-after.data
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 239  of event 'cpu-clock:u'
+# Event count (approx.): 2414141390
+#
+# Overhead  Command          Shared Object    Symbol                              
+# ........  ...............  ...............  ....................................
+#
+    37.24%  preprocess_rows  preprocess_rows  [.] compute_statistics
+    21.34%  preprocess_rows  preprocess_rows  [.] compute_scores
+    20.92%  preprocess_rows  preprocess_rows  [.] standardize
+    18.41%  preprocess_rows  libc.so.6        [.] __memmove_avx_unaligned_erms_rtm
+     2.09%  preprocess_rows  preprocess_rows  [.] generate_data
+
+
+#
+# (Tip: To not record events from perf itself add --exclude-perf)
+#
+
+========== 6. Contatori hardware perf stat (3 rip., 65536 256 5) ==========
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores perf stat -r 3 -e cycles,instructions,cache-references,cache-misses ./preprocess 65536 256 5
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+
+ Performance counter stats for './preprocess 65536 256 5' (3 runs):
+
+     5,459,755,441      cycles:u                                                                ( +-  0.05% )
+     2,818,087,196      instructions:u                   #    0.52  insn per cycle              ( +-  0.00% )
+       211,180,275      cache-references:u                                                      ( +-  0.00% )
+       189,676,361      cache-misses:u                   #   89.82% of all cache refs           ( +-  0.00% )
+
+           1.90099 +- 0.00123 seconds time elapsed  ( +-  0.06% )
+[fbellina2@wnode25 profiling-data-preparation]$ srun --cpu-bind=cores perf stat -r 3 -e cycles,instructions,cache-references,cache-misses ./preprocess_rows 65536 256 5
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+Observations: 65536; features: 256; repeats: 5
+Checksum: 2261357.7191473623
+
+ Performance counter stats for './preprocess_rows 65536 256 5' (3 runs):
+
+     1,290,650,157      cycles:u                                                                ( +-  0.08% )
+     2,739,436,324      instructions:u                   #    2.12  insn per cycle              ( +-  0.00% )
+        68,659,115      cache-references:u                                                      ( +-  0.02% )
+        38,633,668      cache-misses:u                   #   56.27% of all cache refs           ( +-  0.03% )
+
+          0.495302 +- 0.000462 seconds time elapsed  ( +-  0.09% )
+
+========== RIEPILOGO ==========
+- Nodo: wnode25, job 61199, partizione lab4
+- Validazione '1024 32 1 check': preprocess PASS, preprocess_rows PASS; checksum 8173.5024171285777 / 8173.5024171285777 (identici)
+- Validazione '65536 256 1 check': preprocess PASS, preprocess_rows PASS; checksum 452271.54382956069 / 452271.54382956069 (identici)
+- Checksum '100000 256 5': 3450862.5211855676 / 3450862.5211855676 (identici)
+- Timing time di bash (s): preprocess 1.909 1.904 1.903 -> mediana 1.904; preprocess_rows 0.496 0.499 0.498 -> mediana 0.498; tempo -73.8%, speedup 3.82x
+- Timing GNU time (s): preprocess 1.90 1.90 1.90 -> mediana 1.90; preprocess_rows 0.49 0.49 0.49 -> mediana 0.49; speedup 3.88x
+- Checksum '65536 256 5' nelle run di timing: 2261357.7191473623 
+- perf record before (preprocess): 1067 campioni, checksum 13568146.314903667
+- perf record after (preprocess_rows): 239 campioni, checksum 13568146.314903667
+- compute_statistics Self: 86.79% (before) -> 37.24% (after); Event count 10777777670 -> 2414141390
+- Amdahl: f = 0.8679, S_max = 1/(1-f) = 7.57x; speedup user-space (Event count) = 4.46x; accelerazione hotspot p = 10.40x; Amdahl con p = 4.64x
+- perf stat cycles: 5459755441 -> 1290650157 (-76.4%); instructions: 2818087196 -> 2739436324 (-2.8%); IPC 0.52 -> 2.12
+- perf stat cache-references: 211180275 -> 68659115 (-67.5%); cache-misses: 189676361 -> 38633668 (-79.6%)
+- perf stat elapsed (media 3 rip.): 1.90099 s -> 0.495302 s, speedup 3.84x
+
+[fbellina2@wnode25 profiling-data-preparation]$ ls -l es04_run_20261109_101057
+total 81
+-rw-r--r--. 1 fbellina2 users   1376 Nov  9 10:10 build.txt
+-rw-r--r--. 1 fbellina2 users  20343 Nov  9 10:11 es04_61199.txt
+-rw-------. 1 fbellina2 users  55640 Nov  9 10:11 perf-after.data
+-rw-------. 1 fbellina2 users 121920 Nov  9 10:11 perf-before.data
