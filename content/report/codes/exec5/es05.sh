@@ -3,6 +3,7 @@
 #
 #   bash es05.sh setup     # ricognizione, copia dei file del corso, baseline
 #   bash es05.sh node      # confronto delle ripartizioni MPI x OpenMP su un nodo
+#   bash es05.sh repeat    # run 2 e 3 delle ripartizioni HPL, frequenza effettiva
 #   bash es05.sh collect   # raccoglie input, output e sacct di tutti i run
 #
 # Va eseguito sul login node. Lavora in ~/es05/: una cartella per configurazione
@@ -60,7 +61,9 @@ patch_script() {
         { print }' "$1"
 }
 
-# hpl_case <cartella> <N> <P> <Q> <nodi> <task/nodo> <cpu/task> <tempo>
+# hpl_case <cartella> <N> <P> <Q> <nodi> <task/nodo> <cpu/task> <tempo> [perf]
+# Con "perf" ogni task esegue xhpl sotto perf stat (cycles, task-clock), da cui
+# la frequenza di clock effettiva durante il run.
 hpl_case() {
     local name=$1 dir="$ES/hpl/$1" script
     script="HPL_wilson_n$6c$7_script.sh"
@@ -72,6 +75,10 @@ hpl_case() {
         NR == 12 { sub(/^[0-9]+/, Q) }
         { print }' "$ES/reference/HPL.dat" > "$dir/HPL.dat"
     patch_script "$ES/reference/HPL_wilson_n4c4_script.sh" "hpl_$name" "$5" "$6" "$7" "$8" > "$dir/$script"
+    if [ "${9:-}" = perf ]; then
+        awk -v w="bash -c 'if command -v perf >/dev/null; then exec perf stat -e cycles,task-clock -o perfstat.\$SLURM_PROCID.txt xhpl; else exec xhpl; fi'" '
+            /^srun .*xhpl$/ { sub(/xhpl$/, w) } { print }' "$dir/$script" > "$dir/$script.tmp" && mv "$dir/$script.tmp" "$dir/$script"
+    fi
     chmod +x "$dir/$script"
     echo
     echo "---- hpl/$name"
@@ -178,11 +185,37 @@ do_node() {
     cmd squeue -u "${USER:-$(id -un)}"
 }
 
+# Ripetizioni delle ripartizioni HPL a N = 41280: le differenze fra layout sono di
+# pochi punti percentuali e ogni run è finito su un nodo diverso, quindi servono
+# altre due misure per layout. Un run in più misura la frequenza effettiva.
+do_repeat() {
+    section "0. Nodi $CONSTRAINT"
+    cmd date
+    cmd sinfo -N -p wilson -o "%N %c %m %f %T"
+
+    section "1. HPL: run 2 e 3 di ogni ripartizione a N = 41280"
+    local l tag P Q nt nc r idx=10
+    for l in "16x1_P4Q4 4 4 16 1" "16x1_P2Q8 2 8 16 1" "16x1_P1Q16 1 16 16 1" "8x2_P2Q4 2 4 8 2" \
+             "4x4_P2Q2 2 2 4 4" "2x8_P1Q2 1 2 2 8" "1x16_P1Q1 1 1 1 16"; do
+        read -r tag P Q nt nc <<<"$l"
+        for r in 2 3; do
+            hpl_case "${idx}_N41280_${tag}_r$r" 41280 "$P" "$Q" 1 "$nt" "$nc" 00:30:00
+        done
+        idx=$((idx + 1))
+    done
+
+    section "2. HPL: frequenza di clock effettiva (2 x 8, perf stat per task)"
+    hpl_case 17_N41280_2x8_P1Q2_perf 41280 1 2 1 2 8 00:30:00 perf
+
+    echo
+    cmd squeue -u "${USER:-$(id -un)}"
+}
+
 # Tabella finale: un run per riga, con la frazione del picco dei core usati.
 summary() {
     section "RIEPILOGO"
     local dir out f node nt th v N NB P Q T G chk np gx gy gz rate
-    printf '%-26s %-8s %5s %4s %7s %6s %9s %11s %7s %s\n' HPL nodo task thr N PxQ "Time(s)" "GFLOP/s" "%picco" residuo
+    printf '%-26s %-8s %5s %4s %7s %6s %9s %11s %7s %s\n' HPL nodo task thr N PxQ "Time(s)" "GFLOP/s" "%p@2GHz" residuo
     for dir in "$ES"/hpl/*/; do
         out=$(ls "$dir"*.out 2>/dev/null | head -1)
         [ -n "$out" ] || continue
@@ -195,7 +228,7 @@ summary() {
             "$(awk -v g="${G:-0}" -v c=$(( ${nt:-0} * ${th:-0} )) -v pc=$PEAK_CORE 'BEGIN { if (c > 0) printf "%.1f", 100 * g / (c * pc) }')" "${chk:-n/d}"
     done
     echo
-    printf '%-26s %-8s %5s %4s %15s %11s %7s %s\n' HPCG nodo proc thr "griglia glob." "GFLOP/s" "%picco" esito
+    printf '%-26s %-8s %5s %4s %15s %11s %7s %s\n' HPCG nodo proc thr "griglia glob." "GFLOP/s" "%p@2GHz" esito
     for dir in "$ES"/hpcg/*/; do
         f=$(ls -t "$dir"HPCG-Benchmark*.txt 2>/dev/null | head -1)
         [ -n "$f" ] || continue
@@ -238,7 +271,7 @@ do_collect() {
         done
         cmd sacct -j "$id" --format="$SACCT_FMT"
         # .err contiene le maschere di --cpu-bind=verbose; hpcg<data>.txt è il log di HPCG.
-        for f in *.out *.err hpcg[0-9]*.txt HPCG-Benchmark*.txt; do
+        for f in *.out *.err perfstat*.txt hpcg[0-9]*.txt HPCG-Benchmark*.txt; do
             [ -f "$f" ] && cmd cat "$f"
         done
         for f in *.out; do
@@ -254,8 +287,8 @@ do_collect() {
 }
 
 case "${1:-}" in
-    setup|node|collect) ;;
-    *) echo "Uso: bash es05.sh setup | node | collect" >&2; exit 1 ;;
+    setup|node|repeat|collect) ;;
+    *) echo "Uso: bash es05.sh setup | node | repeat | collect" >&2; exit 1 ;;
 esac
 command -v sbatch >/dev/null || { echo "Errore: sbatch non trovato, non sei su WILSON?" >&2; exit 1; }
 mkdir -p "$ES/logs"

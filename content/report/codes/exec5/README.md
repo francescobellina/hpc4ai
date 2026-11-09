@@ -23,6 +23,7 @@ locale e durata richiesta di 60 s.
 ```bash
 bash es05.sh setup     # una volta sola
 bash es05.sh node      # confronto delle ripartizioni MPI x OpenMP su un nodo
+bash es05.sh repeat    # run 2 e 3 delle ripartizioni HPL, frequenza effettiva
 bash es05.sh collect   # quando i job sono finiti (squeue vuoto)
 ```
 
@@ -44,6 +45,13 @@ Le cartelle copiano i file del corso cambiando solo `N`, `P`, `Q` (righe 6, 11 e
 di `HPL.dat`), la griglia locale (riga 3 di `hpcg.dat`), le righe `#SBATCH` del
 layout, il nome del job, il tempo e il vincolo sul nodo; il log mostra il `diff`
 di ogni file rispetto al riferimento.
+
+`repeat` rilancia due volte ciascuna delle 7 ripartizioni HPL a N = 41280 (cartelle
+`*_r2`, `*_r3`): le differenze fra layout sono di pochi punti percentuali e il primo
+giro ha usato un nodo diverso per ogni layout. Un run 2×8 in più
+(`17_N41280_2x8_P1Q2_perf`) esegue `xhpl` sotto `perf stat -e cycles,task-clock`
+per misurare la frequenza di clock effettiva (`perfstat.<rank>.txt`), necessaria
+per il picco teorico.
 
 `collect` scrive, per ogni cartella con un job: input, script batch, riga `sacct`
 (stato, exit code, tempo), output completi, righe `WR...`/`PASSED` di HPL e
