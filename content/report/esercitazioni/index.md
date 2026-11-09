@@ -11,3 +11,5 @@ schema fisso: **consegna** (evidenziata), **parametri**, **implementazione**,
 3. [Esercitazione 4 — Profiling e ottimizzazione della data preparation](es04-profiling-data-preparation.md)
    — profilo con `perf`, hotspot memory-bound, scambio dei cicli, limite di
    Amdahl. Il numero segue l'ordine del materiale del corso.
+4. [Esercitazione 4 (OLD VERSION)](es04-profiling-data-preparation-old.md) —
+   versione precedente della pagina, conservata per confronto.

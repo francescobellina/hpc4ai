@@ -57,6 +57,8 @@ project:
         title: "Esercitazione 2 — Parallel Hello, World!"
       - file: content/report/esercitazioni/es04-profiling-data-preparation.md
         title: "Esercitazione 4 — Profiling e ottimizzazione"
+      - file: content/report/esercitazioni/es04-profiling-data-preparation-old.md
+        title: "Esercitazione 4 (OLD VERSION)"
     - file: content/report/riepilogo.md
       title: Riepilogo finale
     - file: content/report/appendice-codici.md
