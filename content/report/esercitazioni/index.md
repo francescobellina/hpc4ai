@@ -13,3 +13,5 @@ schema fisso: **consegna** (evidenziata), **parametri**, **implementazione**,
    Amdahl. Il numero segue l'ordine del materiale del corso.
 4. [Esercitazione 4 (OLD VERSION)](es04-profiling-data-preparation-old.md) —
    versione precedente della pagina, conservata per confronto.
+5. [Esercitazione 5 — Benchmarking e scaling con HPL e HPCG](es05-hpl-hpcg.md) —
+   ripartizione MPI × thread su un nodo, picco teorico, scaling su più nodi.

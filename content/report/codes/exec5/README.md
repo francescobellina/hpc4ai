@@ -8,6 +8,7 @@ parallelizzazione su un nodo, scaling, confronto con il picco teorico.
 | File | Scopo |
 |---|---|
 | `es05.sh` | ricognizione, baseline, serie di run (una cartella per configurazione) e raccolta di input, output e `sacct` con tabella riassuntiva |
+| `analyze_es05.py` | legge un log di `collect` e produce le tabelle (Markdown) e le figure `content/report/figures/es05-*.png` |
 
 ## Riferimenti del corso
 
@@ -72,3 +73,11 @@ e griglia dei processi passata con `--npx/--npy/--npz`.
 GFLOP/s, frazione del picco dei core allocati, validazione).
 
 Entrambi scrivono il log in `~/es05/logs/<sottocomando>_<data>.txt`.
+
+## Analisi (sul Mac)
+
+```bash
+.venv/bin/python content/report/codes/exec5/analyze_es05.py results/es05/collect_<data>.txt
+```
+
+Senza argomento usa il log di `collect` più recente in `results/es05/`.

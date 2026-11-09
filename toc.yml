@@ -59,6 +59,8 @@ project:
         title: "Esercitazione 4 — Profiling e ottimizzazione"
       - file: content/report/esercitazioni/es04-profiling-data-preparation-old.md
         title: "Esercitazione 4 (OLD VERSION)"
+      - file: content/report/esercitazioni/es05-hpl-hpcg.md
+        title: "Esercitazione 5 — Benchmarking con HPL e HPCG"
     - file: content/report/riepilogo.md
       title: Riepilogo finale
     - file: content/report/appendice-codici.md
