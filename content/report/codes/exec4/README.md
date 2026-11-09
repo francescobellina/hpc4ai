@@ -10,6 +10,7 @@ feature, standardizzazione, score lineare. Corrisponde all'[Esercitazione 4](../
 | `preprocess.c` | versione originale, fornita dal corso (invariata) |
 | `preprocess_rows.c` | stessa pipeline con i cicli di `compute_statistics` scambiati: accessi contigui |
 | `README-esercizio.txt` | readme distribuito con il materiale del corso |
+| `es04_all.sh` | tutte le misure della relazione in un solo job Slurm, con riepilogo numerico |
 
 Le due versioni differiscono **solo** in `compute_statistics`. Stesso algoritmo a
 due passaggi, stesso ordine di accumulo per feature: il risultato numerico è
@@ -41,6 +42,23 @@ perf report --stdio -i perf-before.data
 La variante ottimizzata usa gli stessi comandi con `preprocess_rows` e
 `perf-after.data`. Per il confronto dei profili servono 30 ripetizioni per
 entrambi, lasciando 5 per il confronto dei tempi.
+
+## Esecuzione completa in un solo job
+
+`es04_all.sh` raccoglie in un colpo tutti gli output della relazione. Sul login
+node di WILSON, nella cartella con `preprocess.c` e `preprocess_rows.c`:
+
+```bash
+bash es04_all.sh
+```
+
+Compila con i flag sopra, invia un job su `lab4` (1 core, `--mem=1G`), ne attende
+la fine con `sbatch --wait` e scrive `es04_run_<data>/es04_<JOBID>.txt`: build,
+nodo e `lscpu`, validazione `1024 32 1 check` e `65536 256 1 check`, checksum a
+`100000 256 5`, 3 run alternate per versione misurate sia dal `time` di bash sia da
+GNU time, `perf record`/`perf report` a 30 ripetizioni, `perf stat -r 3` e un
+riepilogo con mediane, speedup, quota $f$ e bound di Amdahl. I `perf-*.data`
+restano nella cartella di run.
 
 ## Parametri di default
 
