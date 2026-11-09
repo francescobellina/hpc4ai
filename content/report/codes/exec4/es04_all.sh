@@ -10,8 +10,9 @@
 #
 #   es04_run_<data>/es04_<JOBID>.txt
 #
-# Contenuto: build, nodo e CPU, validazione, checksum, timing (time di bash e
-# GNU time sulle stesse run, versioni alternate), perf record/report, perf stat,
+# Contenuto: build con diff dei sorgenti, nodo e CPU, validazione, checksum con
+# la tolleranza della consegna, timing (time di bash e GNU time sulle stesse run,
+# versioni alternate), perf record/report a 5 e 30 ripetizioni, perf stat,
 # riepilogo numerico. I file perf-*.data restano nella stessa cartella.
 #
 #SBATCH --job-name=es04_all
@@ -47,6 +48,22 @@ median()   { printf '%s\n' "$@" | sort -n | awk '{ a[NR] = $1 } END { if (NR % 2
 ratio()    { awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN { if (b > 0) printf "%.2f", a / b; else printf "n/d" }'; }
 change()   { awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN { if (a > 0) printf "%+.1f%%", (b / a - 1) * 100; else printf "n/d" }'; }
 stat_val() { awk -v ev="$1" '$2 ~ "^" ev { gsub(",", "", $1); print $1; exit }' <<<"$OUT"; }
+# Criterio della consegna: |a - b| <= 1e-8 + 1e-10 |a|.
+within_tol() {
+    [ -n "$1" ] && [ -n "$2" ] || { printf 'n/d'; return; }
+    awk -v a="$1" -v b="$2" 'BEGIN { d = a - b; if (d < 0) d = -d; t = 1e-8 + 1e-10 * (a < 0 ? -a : a)
+        printf "|a-b| = %.3g <= %.3g: %s", d, t, (d <= t ? "OK" : "FUORI TOLLERANZA") }'
+}
+# amdahl <rip.> <Self% before> <Self% after> <Event count before> <Event count after>
+amdahl() {
+    awk -v r="$1" -v sb="${2:-0}" -v sa="${3:-0}" -v eb="${4:-0}" -v ea="${5:-0}" 'BEGIN {
+        f = sb / 100
+        if (f >= 1 || sa <= 0 || ea <= 0) { printf "Amdahl (%s rip.): dati perf incompleti", r; exit }
+        p = (sb * eb) / (sa * ea)
+        printf "Amdahl (%s rip.): f = %.4f, S_max = 1/(1-f) = %.2fx; speedup user-space (Event count) = %.2fx; accelerazione hotspot p = %.2fx; Amdahl con p = %.2fx",
+            r, f, 1 / (1 - f), eb / ea, p, 1 / ((1 - f) + f / p)
+    }'
+}
 
 submit() {
     cd -- "$(dirname -- "$0")" || exit 1
@@ -72,6 +89,14 @@ submit() {
             else
                 echo "ATTENZIONE: preprocess.c differisce dalla copia condivisa del corso"
             fi
+        fi
+        # Il diff documenta il cambio dei cicli e, applicato a preprocess.c,
+        # ricostruisce esattamente il sorgente misurato (verificabile con sha256sum).
+        cmd diff -u preprocess.c preprocess_rows.c
+        if type module >/dev/null 2>&1; then
+            cmd module list
+        else
+            echo "(module non inizializzato in questa shell: nessun modulo caricato, gcc di sistema)"
         fi
         cmd gcc $CFLAGS preprocess.c -lm -o preprocess &&
             cmd gcc $CFLAGS preprocess_rows.c -lm -o preprocess_rows
@@ -135,7 +160,8 @@ measure() {
             tb=$(sed -n 's/^bash time: \([0-9.]*\) s$/\1/p' <<<"$OUT")
             tg=$(sed -n 's/^GNU time: \([0-9.]*\) s elapsed.*/\1/p' <<<"$OUT")
             c_t+=("$(checksum)")
-            if [ "$exe" = preprocess ]; then T_O+=("$tb"); G_O+=("$tg"); else T_R+=("$tb"); G_R+=("$tg"); fi
+            if [ "$exe" = preprocess ]; then T_O+=("$tb"); G_O+=("$tg"); c_o=$(checksum)
+            else T_R+=("$tb"); G_R+=("$tg"); c_r=$(checksum); fi
         done
     done
     local m_o m_r
@@ -144,27 +170,30 @@ measure() {
     m_o=$(median "${G_O[@]}"); m_r=$(median "${G_R[@]}")
     note "Timing GNU time (s): preprocess ${G_O[*]} -> mediana $m_o; preprocess_rows ${G_R[*]} -> mediana $m_r; speedup $(ratio "$m_o" "$m_r")x"
     note "Checksum '$N $D $REPS' nelle run di timing: $(printf '%s\n' "${c_t[@]}" | sort -u | tr '\n' ' ')"
+    note "Checksum problema completo, preprocess vs preprocess_rows: $(within_tol "$c_o" "$c_r")"
 
-    section "5. Profili perf record / perf report ($N $D $PROF_REPS)"
-    local self_b= self_a= ev_b= ev_a= samples self ev
-    for v in before:preprocess after:preprocess_rows; do
-        tag=${v%%:*} exe=${v#*:}
-        cap $SRUN perf record -e cpu-clock:u -F 99 -g -o "$RUN/perf-$tag.data" ./$exe $N $D $PROF_REPS
-        samples=$(sed -n 's/.*(\([0-9]*\) samples).*/\1/p' <<<"$OUT")
-        note "perf record $tag ($exe): $samples campioni, checksum $(checksum)"
-        cmd perf report --stdio -i "$RUN/perf-$tag.data"
-        cap perf report --stdio --no-children -g none -i "$RUN/perf-$tag.data"
-        self=$(awk '/compute_statistics/ { sub("%", "", $1); print $1; exit }' <<<"$OUT")
-        ev=$(sed -n 's/^# Event count (approx.): //p' <<<"$OUT")
-        if [ "$tag" = before ]; then self_b=$self ev_b=$ev; else self_a=$self ev_a=$ev; fi
+    # Profili con le ripetizioni della consegna ($REPS, nomi file del corso) e con
+    # $PROF_REPS ripetizioni, per avere abbastanza campioni anche dopo l'ottimizzazione.
+    section "5. Profili perf record / perf report ($N $D $REPS e $N $D $PROF_REPS)"
+    local reps data self_b self_a ev_b ev_a samples self ev
+    for reps in $REPS $PROF_REPS; do
+        self_b= self_a= ev_b= ev_a=
+        for v in before:preprocess after:preprocess_rows; do
+            tag=${v%%:*} exe=${v#*:}
+            data="$RUN/perf-$tag.data"
+            [ "$reps" = "$REPS" ] || data="$RUN/perf-$tag-$reps.data"
+            cap $SRUN perf record -e cpu-clock:u -F 99 -g -o "$data" ./$exe $N $D $reps
+            samples=$(sed -n 's/.*(\([0-9]*\) samples).*/\1/p' <<<"$OUT")
+            note "perf record $tag ($exe, $reps rip.): $samples campioni, checksum $(checksum)"
+            cmd perf report --stdio -i "$data"
+            cap perf report --stdio --no-children -g none -i "$data"
+            self=$(awk '/compute_statistics/ { sub("%", "", $1); print $1; exit }' <<<"$OUT")
+            ev=$(sed -n 's/^# Event count (approx.): //p' <<<"$OUT")
+            if [ "$tag" = before ]; then self_b=$self ev_b=$ev; else self_a=$self ev_a=$ev; fi
+        done
+        note "compute_statistics Self ($reps rip.): $self_b% (before) -> $self_a% (after); Event count $ev_b -> $ev_a"
+        note "$(amdahl "$reps" "$self_b" "$self_a" "$ev_b" "$ev_a")"
     done
-    note "compute_statistics Self: $self_b% (before) -> $self_a% (after); Event count $ev_b -> $ev_a"
-    note "$(awk -v sb="${self_b:-0}" -v sa="${self_a:-0}" -v eb="${ev_b:-0}" -v ea="${ev_a:-0}" 'BEGIN {
-        f = sb / 100
-        if (f >= 1 || sa <= 0 || ea <= 0) { print "Amdahl: dati perf incompleti"; exit }
-        printf "Amdahl: f = %.4f, S_max = 1/(1-f) = %.2fx; speedup user-space (Event count) = %.2fx; accelerazione hotspot p = %.2fx; Amdahl con p = %.2fx",
-            f, 1 / (1 - f), eb / ea, (sb * eb) / (sa * ea), 1 / ((1 - f) + f / ((sb * eb) / (sa * ea)))
-    }')"
 
     section "6. Contatori hardware perf stat ($STAT_RUNS rip., $N $D $REPS)"
     local cyc_o cyc_r ins_o ins_r ref_o ref_r mis_o mis_r el_o el_r

@@ -53,12 +53,13 @@ bash es04_all.sh
 ```
 
 Compila con i flag sopra, invia un job su `lab4` (1 core, `--mem=1G`), ne attende
-la fine con `sbatch --wait` e scrive `es04_run_<data>/es04_<JOBID>.txt`: build,
-nodo e `lscpu`, validazione `1024 32 1 check` e `65536 256 1 check`, checksum a
-`100000 256 5`, 3 run alternate per versione misurate sia dal `time` di bash sia da
-GNU time, `perf record`/`perf report` a 30 ripetizioni, `perf stat -r 3` e un
-riepilogo con mediane, speedup, quota $f$ e bound di Amdahl. I `perf-*.data`
-restano nella cartella di run.
+la fine con `sbatch --wait` e scrive `es04_run_<data>/es04_<JOBID>.txt`: build con
+`diff -u preprocess.c preprocess_rows.c`, nodo e `lscpu`, validazione
+`1024 32 1 check` e `65536 256 1 check`, checksum a `100000 256 5` e confronto con
+la tolleranza della consegna, 3 run alternate per versione misurate sia dal `time`
+di bash sia da GNU time, `perf record`/`perf report` a 5 ripetizioni (comando della
+consegna) e a 30, `perf stat -r 3` e un riepilogo con mediane, speedup, quota $f$ e
+bound di Amdahl. I `perf-*.data` restano nella cartella di run.
 
 ## Parametri di default
 
