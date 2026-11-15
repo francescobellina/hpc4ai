@@ -9,7 +9,7 @@ article:has(#fig-hpc4ai-cover) .myst-fm-block-title { display: none !important; 
 
 /* Red title for the lab preparation page */
 article:has(.prep-page) .myst-fm-block-title,
-nav a[href="/content/report/preparazione-laboratorio"] { color: #dc2626 !important; }
+nav a[href="/content/esercizi/preparazione-laboratorio"] { color: #dc2626 !important; }
 
 /* Attribution at the end of every page (with copyright symbol) */
 article::after {

@@ -20,8 +20,7 @@ project:
     - scripts/**
     - results/**
     - config/**
-    - content/report/codes/**
-    - content/exercises/**
+    - codes/**
 
 site:
   template: book-theme

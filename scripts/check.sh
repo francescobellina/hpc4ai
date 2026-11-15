@@ -17,19 +17,15 @@ for name in ["myst.yml", "toc.yml"]:
 
 required = [
     "content/index.md",
+    "content/teoria/01-architetture.md",
+    "content/esercizi/index.md",
+    "content/relazione/index.md",
     "content/workflow/overview.md",
     "content/workflow/lab-client-wilson.md",
-    "content/lectures/lecture01/index.md",
 ]
 missing = [p for p in required if not Path(p).exists()]
 if missing:
     raise SystemExit("Missing required files: " + ", ".join(missing))
-
-for i in range(1, 14):
-    base = Path(f"content/lectures/lecture{i:02d}")
-    for rel in ["index.md", "theory.md", "examples.md", "exercises", "notebooks", "code", "data", "figures"]:
-        if not (base / rel).exists():
-            raise SystemExit(f"Missing lecture component: {base / rel}")
 
 print("Basic project structure: OK")
 PYCHECK

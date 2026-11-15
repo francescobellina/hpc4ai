@@ -53,6 +53,6 @@ Al ritorno sull'altra postazione, esegui `git status` e `git pull --ff-only` pri
 
 ## Organizzazione del progetto
 
-Le lezioni sono sotto `content/lectures/`, gli strumenti generali sotto `content/reference/` e la relazione di laboratorio sotto `content/report/`. Codice completo, notebook, figure e risultati restano vicini al materiale che li usa. Il TOC del libro è `toc.yml`; la configurazione MyST è `myst.yml`.
+La teoria è sotto `content/teoria/`, gli esercizi sotto `content/esercizi/`, la relazione (in inglese) sotto `content/relazione/` e gli strumenti generali sotto `content/reference/`. Il codice completo degli esercizi è in `codes/execN/`, i log curati in `results/`. Il TOC del libro è `toc.yml`; la configurazione MyST è `myst.yml`.
 
 Per l'accesso, i trasferimenti e l'esecuzione su WILSON, consulta la [guida pratica al cluster](lab-client-wilson.md). Non confondere il clone locale con la directory remota e non salvare credenziali nel repository.

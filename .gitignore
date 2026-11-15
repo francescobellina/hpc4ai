@@ -41,3 +41,9 @@ results/**/tmp/
 *.dylib
 *.out
 *.exe
+
+# macOS debug symbols
+*.dSYM/
+
+# PDF exports (regenerate with: jupyter book build --pdf content/relazione/index.md)
+exports/

@@ -184,9 +184,11 @@ confirmed in the laboratory.
 
 ## Repository structure
 
-Each lecture is a self-contained teaching unit. Theory, examples, exercises,
-notebooks, source code, input data, and figures live close to one another.
-Cross-lecture material lives in `shared/` or `content/reference/`.
+The book follows the course site: **Part I — Theory** (macro-chapters following
+the six course chapters), **Part II — Exercises** (warm-up and the exercises for
+the report, numbered as in the course; each exercise links to the theory it
+uses) and **Part III — Report** (English synthesis of the results, exported to
+PDF), plus appendices.
 
 ```text
 hpc4ai/
@@ -195,68 +197,33 @@ hpc4ai/
 ├── toc.yml                   # book navigation / table of contents
 ├── requirements.txt
 ├── environment.yml
-├── .gitignore
-├── .editorconfig
-├── .gitattributes
 │
 ├── content/
 │   ├── index.md
 │   ├── preface/
-│   ├── workflow/
-│   ├── lectures/
-│   │   ├── lecture01/
-│   │   │   ├── index.md
-│   │   │   ├── theory.md
-│   │   │   ├── examples.md
-│   │   │   ├── exercises/
-│   │   │   ├── notebooks/
-│   │   │   ├── code/
-│   │   │   ├── data/
-│   │   │   └── figures/
-│   │   ├── lecture02/
-│   │   ├── ...
-│   │   └── lecture13/
-│   └── reference/
+│   ├── teoria/               # Part I: 01-architetture.md … 06-mpi.md, glossario.md
+│   ├── esercizi/             # Part II: warm-up/, esNN-<slug>.md, riepilogo.md
+│   ├── relazione/            # Part III: English report (PDF export)
+│   ├── workflow/             # appendices: working environment, WILSON guide
+│   └── reference/            # appendices: Linux, Git, MPI, OpenMP, Lmod
 │
-├── shared/                   # resources reused by multiple lectures
+├── codes/execN/              # full source per exercise (excluded from the build)
 ├── results/                  # small curated results; raw output stays untracked
-├── scripts/                  # setup, build, preview, checks, cluster helpers
-├── templates/                # reusable lecture/exercise/notebook templates
+├── exports/                  # generated PDF (git-ignored)
+├── shared/                   # resources reused across chapters
+├── scripts/                  # setup, build, preview, checks
+├── templates/                # exercise and notebook templates
 ├── assets/                   # site-wide CSS/images/figures
 ├── config/                   # cluster connection values; never credentials
 ├── .github/workflows/        # CI + GitHub Pages deployment
 └── .vscode/                  # shared VS Code settings, tasks, extensions
 ```
 
-## Lecture structure
+Build the report PDF with:
 
-A lecture is not forced into a rigid number of pages, but it should follow a
-coherent progression:
-
-```text
-Theory -> worked examples -> exercises -> code/notebooks -> analysis/results
+```bash
+uv run --python .venv/bin/python jupyter book build --pdf content/relazione/index.md
 ```
-
-Typical layout:
-
-```text
-lectureXX/
-├── index.md
-├── theory.md
-├── examples.md
-├── exercises/
-│   ├── index.md
-│   └── exerciseNN.md
-├── notebooks/
-├── code/
-├── data/
-└── figures/
-```
-
-Exercises should have a clear objective and should use `.md`, `.ipynb`, `.py`,
-`.c`, `.cpp`, `.h`, `.sh`, or data files only when appropriate to the task.
-Solutions are intended to be visible but collapsed by default in the rendered
-book.
 
 ## Jupyter Book
 

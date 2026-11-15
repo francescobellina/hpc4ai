@@ -1,45 +1,26 @@
 # Project layout
 
-The repository is organized around **self-contained lectures**.
-
-## Lecture-local resources
+The book follows the course site: theory first, then exercises, then the report.
 
 ```text
-content/lectures/lectureXX/
-├── index.md
-├── theory.md
-├── examples.md
-├── exercises/
-├── notebooks/
-├── code/
-├── data/
-└── figures/
+content/
+├── teoria/       # Part I: macro-chapters 01–06 + glossary, figures/, notebooks/
+├── esercizi/     # Part II: warm-up/, esNN-<slug>.md, riepilogo, figures/, notebooks/
+├── relazione/    # Part III: English report, exported to PDF
+├── workflow/     # working environment and WILSON guide
+└── reference/    # short reusable references (Linux, Git, MPI, ...)
+codes/execN/      # full source per exercise, with README
+results/esNN/     # curated logs used by the exercise pages
 ```
 
 | Location | Purpose |
 |---|---|
-| `index.md` | Lecture landing page, objectives, prerequisites, contents |
-| `theory.md` | Concise theory, equations, definitions, HPC/physics context |
-| `examples.md` | Worked examples that bridge theory and exercises |
-| `exercises/` | Practical tasks with objectives, procedure, questions, solutions |
-| `notebooks/` | Interactive Python, analysis, plots, ML or result interpretation |
-| `code/` | `.py`, `.c`, `.cpp`, `.h`, `.sh` and other source/executable files |
-| `data/` | Small lecture-specific inputs or curated datasets |
-| `figures/` | Lecture-specific diagrams and figures |
+| `content/teoria/` | Theory by topic, following the six course chapters |
+| `content/esercizi/` | One page per exercise with the full lab notebook; each links to its theory |
+| `content/relazione/` | The report to submit: an English synthesis of the exercises |
+| `codes/` | Full source, batch scripts and analysis scripts (excluded from the build) |
+| `results/` | Small curated outputs useful for reproducibility |
 
-Not every lecture needs the same number of files. Empty directories are kept in
-Git with `.gitkeep` until needed.
-
-## Shared resources
-
-Use `shared/` only when a resource is genuinely reused by more than one lecture.
-
-## Results
-
-Use `results/` for small outputs useful for reproducibility. Large raw output,
-temporary files, and machine-generated logs should normally remain untracked.
-
-## Reference material
-
-`content/reference/` contains short reusable explanations for recurring tools so
-they do not need to be re-explained in every lecture.
+Large raw output, temporary files and machine-generated logs normally stay
+untracked. `content/reference/` holds short reusable explanations for recurring
+tools so they are not repeated in every chapter.

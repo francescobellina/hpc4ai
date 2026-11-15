@@ -7,14 +7,14 @@
 
 Questo libro raccoglie teoria, esempi, esercizi, notebook e codice per il corso HPC4AI.
 
-Il percorso collega i fondamenti architetturali e il parallelismo alla pratica sul cluster. La relazione di laboratorio resta una sezione autonoma.
+Il libro segue la struttura del [sito del corso](https://virgilio.mib.infn.it/~marcoce/teaching/hpc4ai/content/home.html), che è la fonte principale.
 
 ## Percorso del libro
 
-- **Ambiente di lavoro**: workspace, Git, accesso al cluster e primi esercizi.
-- **Architetture HPC**: CPU, memoria, località dei dati e modello Roofline.
-- **Parallelismo**: processi, thread, OpenMP, MPI e scalabilità.
-- **Relazione di laboratorio**: esercizi su aritmetica floating-point e programmazione parallela.
+- **Parte I — Teoria**: sei capitoli come nel corso (architetture, calcolo parallelo, performance e benchmarking, risorse e Slurm, OpenMP, MPI) più un glossario.
+- **Parte II — Esercizi**: il warm-up e gli esercizi per la relazione, numerati come nel corso. Ogni esercizio rimanda alle sezioni di teoria che usa.
+- **Parte III — Relazione**: la sintesi dei risultati degli esercizi, in inglese, esportabile in PDF.
+- **Appendici**: ambiente di lavoro, guida a WILSON e riferimenti rapidi.
 
 ## Working model
 

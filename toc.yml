@@ -3,7 +3,7 @@ project:
   toc:
   - file: content/index.md
     title: Home
-  - title: Home e introduzione
+  - title: Introduzione
     children:
     - file: content/preface/introduction.md
       title: Introduzione al corso
@@ -11,64 +11,70 @@ project:
       title: Prerequisiti
     - file: content/preface/how-to-use-this-book.md
       title: Come usare il libro
-  - file: content/preface/hpc-concepts-it.md
-    title: Concetti HPC — introduzione (IT)
-  - title: Ambiente di lavoro e primi esercizi
+  - title: Parte I — Teoria
+    children:
+    - file: content/teoria/01-architetture.md
+      title: 1. Architetture di calcolo
+      children:
+      - file: content/teoria/notebooks/performance-models.ipynb
+        title: Notebook — modello Roofline
+    - file: content/teoria/02-calcolo-parallelo.md
+      title: 2. Calcolo parallelo
+    - file: content/teoria/03-performance-benchmarking.md
+      title: 3. Performance e benchmarking
+    - file: content/teoria/04-risorse-slurm.md
+      title: 4. Gestione delle risorse e scheduling
+    - file: content/teoria/05-openmp.md
+      title: 5. Parallelismo a thread e OpenMP
+    - file: content/teoria/06-mpi.md
+      title: 6. Memoria distribuita e MPI
+    - file: content/teoria/glossario.md
+      title: Glossario e domande di controllo
+  - title: Parte II — Esercizi
+    children:
+    - file: content/esercizi/index.md
+      title: Panoramica e linee guida
+    - file: content/esercizi/warm-up/index.md
+      title: Warm-up — dal client a WILSON
+      children:
+      - file: content/esercizi/warm-up/exercise01-workspace.md
+        title: Workspace locale
+      - file: content/esercizi/warm-up/exercise02-git-sync.md
+        title: Sincronizzazione Git
+      - file: content/esercizi/warm-up/exercise03-wilson-session.md
+        title: Sessione WILSON
+      - file: content/esercizi/warm-up/exercise04-hello-world.md
+        title: Hello, World!
+    - file: content/esercizi/es01-basilea.md
+      title: "Esercizio 1 — Problema di Basilea"
+    - file: content/esercizi/es02-parallel-hello-world.md
+      title: "Esercizio 2 — Parallel Hello, World!"
+      children:
+      - file: content/esercizi/preparazione-laboratorio.md
+        title: Guida di laboratorio (es. 2 e 3)
+    - file: content/esercizi/es04-profiling-data-preparation.md
+      title: "Esercizio 4 — Profiling e ottimizzazione"
+      children:
+      - file: content/esercizi/es04-profiling-data-preparation-old.md
+        title: Versione precedente (OLD)
+    - file: content/esercizi/es05-hpl-hpcg.md
+      title: "Esercizio 5 — Benchmarking con HPL e HPCG"
+    - file: content/esercizi/riepilogo.md
+      title: Riepilogo dei risultati
+    - file: content/esercizi/appendice-codici.md
+      title: Codici
+    - file: content/esercizi/notebooks/report-exercises.ipynb
+      title: Notebook — Basilea + Parallel Hello, World
+  - title: Parte III — Relazione
+    children:
+    - file: content/relazione/index.md
+      title: Laboratory report (EN)
+  - title: Appendici
     children:
     - file: content/workflow/overview.md
       title: Ambiente di lavoro e sincronizzazione
-    - file: content/lectures/lecture01/index.md
-      title: Workspace e primi esercizi
-      children:
-      - file: content/lectures/lecture01/exercises/exercise01-workspace.md
-        title: Workspace locale
-      - file: content/lectures/lecture01/exercises/exercise02-git-sync.md
-        title: Sincronizzazione Git
-      - file: content/lectures/lecture01/exercises/exercise03-wilson-session.md
-        title: Sessione WILSON
-      - file: content/lectures/lecture01/exercises/exercise04-hello-world.md
-        title: Hello, World!
-  - file: content/lectures/lecture02/index.md
-    title: Architetture dei calcolatori per HPC
-    children:
-    - file: content/lectures/lecture02/notebooks/performance-models.ipynb
-      title: Notebook — modello Roofline
-  - file: content/lectures/lecture03/index.md
-    title: Parallelismo e programmazione parallela
-    children:
-    - file: content/lectures/lecture03/benchmarking.md
-      title: Performance e benchmarking
-  - file: content/workflow/lab-client-wilson.md
-    title: Guida pratica al cluster WILSON
-  - file: content/report/preparazione-laboratorio.md
-    title: Preparazione laboratorio — Parallel Hello, World
-  - title: Relazione di laboratorio
-    children:
-    - file: content/report/index.md
-      title: Introduzione e struttura
-    - file: content/report/teoria.md
-      title: Teoria
-    - file: content/report/esercitazioni/index.md
-      title: Esercitazioni
-      children:
-      - file: content/report/esercitazioni/es01-basilea.md
-        title: "Esercitazione 1 — Problema di Basilea"
-      - file: content/report/esercitazioni/es02-parallel-hello-world.md
-        title: "Esercitazione 2 — Parallel Hello, World!"
-      - file: content/report/esercitazioni/es04-profiling-data-preparation.md
-        title: "Esercitazione 4 — Profiling e ottimizzazione"
-      - file: content/report/esercitazioni/es04-profiling-data-preparation-old.md
-        title: "Esercitazione 4 (OLD VERSION)"
-      - file: content/report/esercitazioni/es05-hpl-hpcg.md
-        title: "Esercitazione 5 — Benchmarking con HPL e HPCG"
-    - file: content/report/riepilogo.md
-      title: Riepilogo finale
-    - file: content/report/appendice-codici.md
-      title: Appendice — Codici
-    - file: content/report/notebooks/report-exercises.ipynb
-      title: Notebook — Basilea + Parallel Hello, World
-  - title: Riferimenti e strumenti
-    children:
+    - file: content/workflow/lab-client-wilson.md
+      title: Guida pratica al cluster WILSON
     - file: content/reference/linux.md
       title: Linux
     - file: content/reference/git.md
@@ -81,3 +87,5 @@ project:
       title: OpenMP
     - file: content/reference/mpi.md
       title: MPI
+    - file: content/reference/lmod.md
+      title: Moduli (Lmod)
