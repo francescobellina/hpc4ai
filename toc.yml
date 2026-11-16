@@ -28,6 +28,11 @@ project:
       title: 5. Parallelismo a thread e OpenMP
     - file: content/teoria/06-mpi.md
       title: 6. Memoria distribuita e MPI
+    - file: content/teoria/07-mpi-programmazione.md
+      title: 7. Programmare con MPI
+      children:
+      - file: content/teoria/notebooks/programmiamo-con-mpi.ipynb
+        title: Notebook — Programmiamo con MPI
     - file: content/teoria/glossario.md
       title: Glossario e domande di controllo
   - title: Parte II — Esercizi

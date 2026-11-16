@@ -2,6 +2,8 @@
 
 :::{seealso} Fonte principale
 Capitolo 6 del corso, [*Distributed memory and MPI*](https://virgilio.mib.infn.it/~marcoce/teaching/hpc4ai/content/main/mpi.html). Questa pagina riordina le note già scritte secondo la struttura di quel capitolo.
+
+Per la programmazione, chiamata per chiamata, con gli esempi delle slide della lezione 9, vedi il capitolo [7. Programmare con MPI](07-mpi-programmazione.md).
 :::
 
 (mpi-memoria-distribuita)=

@@ -1,0 +1,333 @@
+===== data e macchina
+Mon Nov 16 12:44:12 PM CET 2026
+wilson.bicqcd.internal
+===== moduli
+
+Currently Loaded Modules:
+  1) GCCcore/13.2.0   4) GCC/13.2.0       7) libxml2/2.11.5     10) OpenSSL/1.1      13) libfabric/1.19.0  16) OpenMPI/4.1.6
+  2) zlib/1.2.13      5) numactl/2.0.16   8) libpciaccess/0.17  11) libevent/2.1.12  14) PMIx/4.2.6
+  3) binutils/2.40    6) XZ/5.4.4         9) hwloc/2.9.2        12) UCX/1.15.0       15) UCC/1.2.0
+
+ 
+
+===== compilatori
+gcc (GCC) 13.2.0
+mpicc: Open MPI 4.1.6 (Language: C)
+===== hello_shared_world.c
+#include <stdio.h>
+#include <unistd.h>
+#include <omp.h>
+
+int main(void)
+{
+    char hostname[256];
+    gethostname(hostname, sizeof hostname);
+
+    #pragma omp parallel
+    {
+        int thread = omp_get_thread_num();
+        int threads = omp_get_num_threads();
+
+        printf("Hello from thread %d/%d on %s\n", thread, threads, hostname);
+    }
+
+    return 0;
+}
+===== hello_parallel_world.c
+#define _GNU_SOURCE
+#include <sched.h>
+#include <stdio.h>
+#include <mpi.h>
+#include <omp.h>
+
+/* Write the CPUs in mask as a compact list, for example "0-3,8,10-11". */
+static void format_cpu_set(const cpu_set_t *mask, char *buffer, size_t size)
+{
+    size_t used = 0;
+
+    buffer[0] = '\0';
+    for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+        if (!CPU_ISSET(cpu, mask))
+            continue;
+
+        int last = cpu;
+        while (last + 1 < CPU_SETSIZE && CPU_ISSET(last + 1, mask))
+            ++last;
+
+        const char *separator = used > 0 ? "," : "";
+        int written = (last == cpu)
+            ? snprintf(buffer + used, size - used, "%s%d", separator, cpu)
+            : snprintf(buffer + used, size - used, "%s%d-%d", separator, cpu, last);
+        if (written < 0 || (size_t)written >= size - used)
+            break;  /* buffer full: the list is truncated */
+
+        used += written;
+        cpu = last;
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    int rank, ranks, name_length;
+    char processor_name[MPI_MAX_PROCESSOR_NAME];
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &ranks);
+    MPI_Get_processor_name(processor_name, &name_length);
+
+    #pragma omp parallel
+    {
+        int thread = omp_get_thread_num();
+        int threads = omp_get_num_threads();
+        cpu_set_t mask;
+        char cpus[1024];
+
+        CPU_ZERO(&mask);
+        if (sched_getaffinity(0, sizeof mask, &mask) == 0)
+            format_cpu_set(&mask, cpus, sizeof cpus);
+        else
+            snprintf(cpus, sizeof cpus, "unknown");
+
+        printf("Hello from thread %d/%d from rank %d/%d on %s (core affinity = %s)\n",
+               thread, threads, rank, ranks, processor_name, cpus);
+    }
+
+    MPI_Finalize();
+    return 0;
+}
+===== run_openmp.slurm
+#!/bin/bash
+#SBATCH --job-name=hello_openmp
+#SBATCH --partition=lab4
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --hint=nomultithread
+#SBATCH --time=5:00
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+
+module use /srv/software/easybuild/hmns/x86-64-v2/modules/all/Core
+module load GCC/13.2.0
+module load OpenMPI/4.1.6
+
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+srun --cpu-bind=verbose --cpus-per-task="$SLURM_CPUS_PER_TASK" ./hello_shared_world
+===== run_mpi.slurm
+#!/bin/bash
+#SBATCH --job-name=hello_mpi
+#SBATCH --partition=lab4
+#SBATCH --ntasks=4
+#SBATCH --cpus-per-task=1
+#SBATCH --hint=nomultithread
+#SBATCH --time=5:00
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+
+module use /srv/software/easybuild/hmns/x86-64-v2/modules/all/Core
+module load GCC/13.2.0
+module load OpenMPI/4.1.6
+
+export OMP_NUM_THREADS=1
+srun --cpu-bind=verbose ./hello_parallel_world
+===== run_hybrid.slurm
+#!/bin/bash
+#SBATCH --job-name=hello_hybrid
+#SBATCH --partition=lab4
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=2
+#SBATCH --cpus-per-task=4
+#SBATCH --hint=nomultithread
+#SBATCH --time=5:00
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+
+module use /srv/software/easybuild/hmns/x86-64-v2/modules/all/Core
+module load GCC/13.2.0
+module load OpenMPI/4.1.6
+
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+srun --cpu-bind=verbose --cpus-per-task="$SLURM_CPUS_PER_TASK" ./hello_parallel_world
+===== quick_mpi_1x1.out
+Hello from thread 0/1 from rank 0/1 on wilson.bicqcd.internal (core affinity = 0,16)
+===== quick_mpi_1x2.out
+Hello from thread 0/2 from rank 0/1 on wilson.bicqcd.internal (core affinity = 0,16)
+Hello from thread 1/2 from rank 0/1 on wilson.bicqcd.internal (core affinity = 0,16)
+===== quick_mpi_2x2.out
+Hello from thread 0/2 from rank 0/2 on wilson.bicqcd.internal (core affinity = 0,16)
+Hello from thread 1/2 from rank 0/2 on wilson.bicqcd.internal (core affinity = 0,16)
+Hello from thread 0/2 from rank 1/2 on wilson.bicqcd.internal (core affinity = 1,17)
+Hello from thread 1/2 from rank 1/2 on wilson.bicqcd.internal (core affinity = 1,17)
+===== quick_mpi_2x3.out
+Hello from thread 2/3 from rank 1/2 on wilson.bicqcd.internal (core affinity = 1,17)
+Hello from thread 1/3 from rank 1/2 on wilson.bicqcd.internal (core affinity = 1,17)
+Hello from thread 0/3 from rank 1/2 on wilson.bicqcd.internal (core affinity = 1,17)
+Hello from thread 2/3 from rank 0/2 on wilson.bicqcd.internal (core affinity = 0,16)
+Hello from thread 1/3 from rank 0/2 on wilson.bicqcd.internal (core affinity = 0,16)
+Hello from thread 0/3 from rank 0/2 on wilson.bicqcd.internal (core affinity = 0,16)
+===== quick_mpi_3x2.out
+Hello from thread 0/2 from rank 0/3 on wilson.bicqcd.internal (core affinity = 0-7,16-23)
+Hello from thread 1/2 from rank 0/3 on wilson.bicqcd.internal (core affinity = 0-7,16-23)
+Hello from thread 0/2 from rank 1/3 on wilson.bicqcd.internal (core affinity = 8-15,24-31)
+Hello from thread 1/2 from rank 1/3 on wilson.bicqcd.internal (core affinity = 8-15,24-31)
+Hello from thread 0/2 from rank 2/3 on wilson.bicqcd.internal (core affinity = 0-7,16-23)
+Hello from thread 1/2 from rank 2/3 on wilson.bicqcd.internal (core affinity = 0-7,16-23)
+===== quick_mpi_4x1.out
+Hello from thread 0/1 from rank 1/4 on wilson.bicqcd.internal (core affinity = 8-15,24-31)
+Hello from thread 0/1 from rank 2/4 on wilson.bicqcd.internal (core affinity = 0-7,16-23)
+Hello from thread 0/1 from rank 3/4 on wilson.bicqcd.internal (core affinity = 8-15,24-31)
+Hello from thread 0/1 from rank 0/4 on wilson.bicqcd.internal (core affinity = 0-7,16-23)
+===== quick_openmp_T1.out
+Hello from thread 0/1 on wilson.bicqcd.internal
+===== quick_openmp_T2.out
+Hello from thread 0/2 on wilson.bicqcd.internal
+Hello from thread 1/2 on wilson.bicqcd.internal
+===== quick_openmp_T4.out
+Hello from thread 1/4 on wilson.bicqcd.internal
+Hello from thread 3/4 on wilson.bicqcd.internal
+Hello from thread 2/4 on wilson.bicqcd.internal
+Hello from thread 0/4 on wilson.bicqcd.internal
+===== quick_openmp_T8.out
+Hello from thread 0/8 on wilson.bicqcd.internal
+Hello from thread 3/8 on wilson.bicqcd.internal
+Hello from thread 2/8 on wilson.bicqcd.internal
+Hello from thread 6/8 on wilson.bicqcd.internal
+Hello from thread 5/8 on wilson.bicqcd.internal
+Hello from thread 1/8 on wilson.bicqcd.internal
+Hello from thread 7/8 on wilson.bicqcd.internal
+Hello from thread 4/8 on wilson.bicqcd.internal
+===== quick_ref_parallel.out
+Hello from thread 0/2 from rank 0/2 on wilson.bicqcd.internal (core affinity = 0,16)
+Hello from thread 1/2 from rank 0/2 on wilson.bicqcd.internal (core affinity = 0,16)
+Hello from thread 0/2 from rank 1/2 on wilson.bicqcd.internal (core affinity = 1,17)
+Hello from thread 1/2 from rank 1/2 on wilson.bicqcd.internal (core affinity = 1,17)
+===== quick_ref_shared.out
+Hello from thread 0/2 on wilson.bicqcd.internal
+Hello from thread 1/2 on wilson.bicqcd.internal
+===== run_openmp.slurm (job 61828)
+JobID                 JobName  Partition                 NodeList   NNodes   NTasks  AllocCPUS    Elapsed      State ExitCode 
+------------ ---------------- ---------- ------------------------ -------- -------- ---------- ---------- ---------- -------- 
+61828            hello_openmp       lab4                  wnode25        1                   8   00:00:01  COMPLETED      0:0 
+61828.batch             batch                             wnode25        1        1          8   00:00:01  COMPLETED      0:0 
+61828.0      hello_shared_wo+                             wnode25        1        1          8   00:00:00  COMPLETED      0:0 
+----- hello_openmp.61828.out
+Hello from thread 0/4 on wnode25
+Hello from thread 3/4 on wnode25
+Hello from thread 1/4 on wnode25
+Hello from thread 2/4 on wnode25
+----- hello_openmp.61828.err
+
+Inactive Modules:
+  1) zlib/1.2.13
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) binutils/2.40
+
+
+Activating Modules:
+  1) zlib/1.2.13
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) binutils/2.40
+
+cpu-bind=MASK - wnode25, task  0  0 [3294]: mask 0xf set
+===== run_mpi.slurm (job 61829)
+JobID                 JobName  Partition                 NodeList   NNodes   NTasks  AllocCPUS    Elapsed      State ExitCode 
+------------ ---------------- ---------- ------------------------ -------- -------- ---------- ---------- ---------- -------- 
+61829               hello_mpi       lab4                  wnode25        1                   8   00:00:03  COMPLETED      0:0 
+61829.batch             batch                             wnode25        1        1          8   00:00:03  COMPLETED      0:0 
+61829.0      hello_parallel_+                             wnode25        1        4          8   00:00:02  COMPLETED      0:0 
+----- hello_mpi.61829.out
+Hello from thread 0/1 from rank 1/4 on wnode25 (core affinity = 16)
+Hello from thread 0/1 from rank 3/4 on wnode25 (core affinity = 17)
+Hello from thread 0/1 from rank 2/4 on wnode25 (core affinity = 1)
+Hello from thread 0/1 from rank 0/4 on wnode25 (core affinity = 0)
+----- hello_mpi.61829.err
+
+Inactive Modules:
+  1) zlib/1.2.13
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) binutils/2.40
+
+
+Activating Modules:
+  1) zlib/1.2.13
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) binutils/2.40
+
+cpu-bind=MASK - wnode25, task  0  0 [3347]: mask 0x1 set
+cpu-bind=MASK - wnode25, task  1  1 [3348]: mask 0x10000 set
+cpu-bind=MASK - wnode25, task  2  2 [3349]: mask 0x2 set
+cpu-bind=MASK - wnode25, task  3  3 [3350]: mask 0x20000 set
+===== run_hybrid.slurm (job 61830)
+JobID                 JobName  Partition                 NodeList   NNodes   NTasks  AllocCPUS    Elapsed      State ExitCode 
+------------ ---------------- ---------- ------------------------ -------- -------- ---------- ---------- ---------- -------- 
+61830            hello_hybrid       lab4             wnode[26-27]        2                  32   00:00:04  COMPLETED      0:0 
+61830.batch             batch                             wnode26        1        1         16   00:00:04  COMPLETED      0:0 
+61830.0      hello_parallel_+                        wnode[26-27]        2        4         32   00:00:03  COMPLETED      0:0 
+----- hello_hybrid.61830.out
+Hello from thread 0/4 from rank 2/4 on wnode27 (core affinity = 0-3)
+Hello from thread 3/4 from rank 2/4 on wnode27 (core affinity = 0-3)
+Hello from thread 1/4 from rank 2/4 on wnode27 (core affinity = 0-3)
+Hello from thread 2/4 from rank 2/4 on wnode27 (core affinity = 0-3)
+Hello from thread 0/4 from rank 1/4 on wnode26 (core affinity = 4-7)
+Hello from thread 1/4 from rank 1/4 on wnode26 (core affinity = 4-7)
+Hello from thread 3/4 from rank 1/4 on wnode26 (core affinity = 4-7)
+Hello from thread 2/4 from rank 1/4 on wnode26 (core affinity = 4-7)
+Hello from thread 0/4 from rank 0/4 on wnode26 (core affinity = 0-3)
+Hello from thread 3/4 from rank 0/4 on wnode26 (core affinity = 0-3)
+Hello from thread 1/4 from rank 0/4 on wnode26 (core affinity = 0-3)
+Hello from thread 2/4 from rank 0/4 on wnode26 (core affinity = 0-3)
+Hello from thread 0/4 from rank 3/4 on wnode27 (core affinity = 4-7)
+Hello from thread 3/4 from rank 3/4 on wnode27 (core affinity = 4-7)
+Hello from thread 2/4 from rank 3/4 on wnode27 (core affinity = 4-7)
+Hello from thread 1/4 from rank 3/4 on wnode27 (core affinity = 4-7)
+----- hello_hybrid.61830.err
+
+Inactive Modules:
+  1) zlib/1.2.13
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) binutils/2.40
+
+
+Activating Modules:
+  1) zlib/1.2.13
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) binutils/2.40
+
+cpu-bind=MASK - wnode26, task  0  0 [2400]: mask 0xf set
+cpu-bind=MASK - wnode26, task  1  1 [2401]: mask 0xf0 set
+cpu-bind=MASK - wnode27, task  2  0 [2369]: mask 0xf set
+cpu-bind=MASK - wnode27, task  3  1 [2370]: mask 0xf0 set
+===== validazione
+OK    quick OpenMP T=1: 1 righe = 1 rank x 1 thread
+      quick OpenMP T=1: nodi distinti = 1
+OK    quick OpenMP T=2: 2 righe = 1 rank x 2 thread
+      quick OpenMP T=2: nodi distinti = 1
+OK    quick OpenMP T=4: 4 righe = 1 rank x 4 thread
+      quick OpenMP T=4: nodi distinti = 1
+OK    quick OpenMP T=8: 8 righe = 1 rank x 8 thread
+      quick OpenMP T=8: nodi distinti = 1
+OK    quick MPI P=1 T=1: 1 righe = 1 rank x 1 thread
+      quick MPI P=1 T=1: nodi distinti = 1
+OK    quick MPI P=1 T=2: 2 righe = 1 rank x 2 thread
+      quick MPI P=1 T=2: nodi distinti = 1
+OK    quick MPI P=2 T=2: 4 righe = 2 rank x 2 thread
+      quick MPI P=2 T=2: nodi distinti = 1
+OK    quick MPI P=2 T=3: 6 righe = 2 rank x 3 thread
+      quick MPI P=2 T=3: nodi distinti = 1
+OK    quick MPI P=3 T=2: 6 righe = 3 rank x 2 thread
+      quick MPI P=3 T=2: nodi distinti = 1
+OK    quick MPI P=4 T=1: 4 righe = 4 rank x 1 thread
+      quick MPI P=4 T=1: nodi distinti = 1
+OK    Slurm OpenMP (job 61828): 4 righe = 1 rank x 4 thread
+      Slurm OpenMP (job 61828): nodi distinti = 1
+OK    Slurm MPI (job 61829): 4 righe = 4 rank x 1 thread
+      Slurm MPI (job 61829): nodi distinti = 1
+OK    Slurm ibrido (job 61830): 16 righe = 4 rank x 4 thread
+      Slurm ibrido (job 61830): nodi distinti = 2
+      attese: OpenMP 4 righe, MPI 4, ibrido 16; ibrido su 2 nodi distinti

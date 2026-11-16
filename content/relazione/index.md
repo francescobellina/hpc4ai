@@ -146,10 +146,26 @@ changing the number of tasks only the ranks.
 
 ### Results
 
-**To be completed:** batch scripts and outputs of the OpenMP, MPI and hybrid runs
-on WILSON, with the line counts and the CPU-affinity masks. So far only a local
-Python check has been run; it reproduces the thread hierarchy but, because of the
-GIL, is not evidence of parallel execution.
+All 13 checks pass on WILSON (log `results/es02/es02_collect_20261116_124412.txt`):
+OpenMP with 1, 2, 4 and 8 threads and six `mpiexec` layouts (1 × 1 to 4 × 1) on the
+login node, and the three Slurm jobs, all `COMPLETED 0:0`.
+
+:::{table} Slurm runs on partition `lab4` with `--hint=nomultithread`; masks from `--cpu-bind=verbose`.
+:name: r-tab-es02
+
+| Run | Request | Lines | Nodes | CPUs per task (mask) |
+|---|---|---|---|---|
+| OpenMP (job 61828) | 1 task × 4 CPUs | 4 | `wnode25` | 0–3 (`0xf`) |
+| MPI (job 61829) | 4 tasks × 1 CPU | 4 | `wnode25` | 0, 16, 1, 17 |
+| Hybrid (job 61830) | 2 nodes × 2 tasks × 4 CPUs | 16 | `wnode26`, `wnode27` | 0–3 and 4–7 on each node |
+:::
+
+On `wnode25` CPUs 0–15 are the physical cores of socket 0 and 16–31 those of
+socket 1, so every thread gets its own physical core, and without `--distribution`
+the MPI ranks alternate between the sockets. On the login node, `mpiexec` instead
+binds each rank to one core when there are at most two ranks and to a whole socket
+when there are more, which is the Open MPI 4 default. Login-node tests therefore
+check the program, not the placement.
 
 ## Exercise 3 — Tiny stories, many threads
 
@@ -312,8 +328,10 @@ runs report `PASSED` and all 15 HPCG runs `VALID`.
 :name: r-fig-hpl-scaling
 :width: 90%
 
-HPL. Left: strong scaling at $N = 41280$, speedup over one core (log axes; dashed:
-ideal). Right: efficiency relative to one node, strong and memory-scaled.
+HPL. Left: **strong scaling** (fixed matrix, $N = 41280$), speedup over one core
+(log axes; dashed: ideal). Right: efficiency relative to one node for strong
+scaling and, for comparison, for the **memory-scaled** runs, where $N$ grows as
+$\sqrt{p}$.
 :::
 
 **HPL.** At fixed $N$ the time falls from 180 s on one node to 68 s on four
@@ -327,6 +345,28 @@ efficiency). Two things change at eight nodes, the process grid (4 × 4 instead 
 these causes apart. Inside a node the one-core run reaches 108% of the 2.40 GHz
 per-core peak, because turbo raises the clock when few cores are active; efficiency
 is therefore quoted relative to a full node.
+
+:::{figure} ../esercizi/figures/es05-hpl-memory.png
+:name: r-fig-hpl-memory
+:width: 100%
+
+HPL **memory-scaled** study (not strong scaling): runs `S016`, `M02`, `M04`, `M08`;
+$p$ is the number of MPI processes (2 per node, 8 threads each). Dashed lines:
+predictions; dots: measured runs. (a, d) $N$ on the curve $N_1\sqrt{p/p_1}$.
+(b, e) Total GFLOP/s against the ideal $R_1\,p/p_1$ (efficiency 1) and the
+theoretical peak, with the efficiency $E$ of each run. (c, f) Relative to the
+one-node run: memory per process (constant), work per process ($\propto \sqrt{p}$,
+the time at efficiency 1) and measured time, $1/E$ times longer. Top row: linear
+axes; bottom row: log-log axes, where a power law $p^a$ is a straight line of
+slope $a$. Figure labels are in Italian.
+:::
+
+The memory-scaled runs keep the matrix storage per process fixed at 6.35 GiB, but
+the arithmetic work per process grows as $\sqrt{p}$ (×2.83 on eight nodes). A time
+estimate based on memory alone would therefore predict 180 s on every node count;
+the ideal time on eight nodes is already 509 s, and the measured one is 927 s. Up to
+four nodes the measured times follow the $\sqrt{p}$ prediction with a nearly
+constant overhead of 15–18%; on eight nodes they depart from it.
 
 :::{figure} ../esercizi/figures/es05-hpcg-tempi.png
 :name: r-fig-hpcg-times
@@ -369,7 +409,7 @@ reductions).
 | Exercise | Key result | Validation |
 |---|---|---|
 | 1 — Basel | `float32` direct sum stalls at $\Delta = 2.09 \times 10^{-4}$; reverse order reaches $\approx 9 \times 10^{-9}$ | passed (macOS client) |
-| 2 — Parallel Hello | — | to be completed on WILSON |
+| 2 — Parallel Hello | $P \times T$ lines in every layout; one physical core per thread in the Slurm runs | 13/13 checks, 3 jobs `COMPLETED 0:0` |
 | 3 — Tiny stories | — | not run |
 | 4 — Profiling | loop swap: 3.83× overall, 10.3× on the hotspot; IPC from 0.52 to 2.12 | passed, bit-identical checksums |
 | 5 — HPL/HPCG | one node: HPL 85–87% of peak, HPCG 2.8%; eight nodes: HPL 1144 GFLOP/s (47%), HPCG 44.6 GFLOP/s (1.8%) | 36 HPL `PASSED`, 21 HPCG `VALID` |

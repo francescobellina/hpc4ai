@@ -192,13 +192,16 @@ def hpl_scaling(hpl, peak):
               f"| {r['gflops'] / c:.2f} | {s:.2f} | {s / c:.2f} | {en} | {r['gflops'] / (c * peak / CORES) * 100:.1f}% |")
 
     print("\nHPL memory-scaled (8N²/nodi costante; E = R_k/(k R_1))")
-    print("| Nodi | N | Matrice per nodo (GiB) | P×Q | Time (s) | GFLOP/s | GFLOP/s per nodo | Efficienza | Picco (2.40 GHz) |")
-    print("|---|---|---|---|---|---|---|---|---|")
+    print("| Nodi | N | N/√k | P×Q | Memoria per processo (GiB) | Lavoro per processo (rispetto a 1 nodo) | Time (s) | Tempo ideale T_1√k (s) "
+          "| GFLOP/s | GFLOP/s per nodo | Efficienza | Picco (2.40 GHz) |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    p1 = one["P"] * one["Q"]
     for r in memory:
-        n = nodes_of(r["name"])
+        n, p = nodes_of(r["name"]), r["P"] * r["Q"]
         e = r["gflops"] / (n * one["gflops"])
-        print(f"| {n} | {r['N']} | {8 * r['N'] ** 2 / n / 2**30:.1f} | {r['P']}×{r['Q']} | {r['time']:.1f} | {r['gflops']:.1f} "
-              f"| {r['gflops'] / n:.1f} | {e:.2f} | {r['gflops'] / (n * peak) * 100:.1f}% |")
+        print(f"| {n} | {r['N']} | {r['N'] / n ** 0.5:.0f} | {r['P']}×{r['Q']} | {8 * r['N'] ** 2 / p / 2**30:.2f} "
+              f"| {(r['N'] ** 3 / p) / (one['N'] ** 3 / p1):.2f} | {r['time']:.1f} | {one['time'] * n ** 0.5:.1f} "
+              f"| {r['gflops']:.1f} | {r['gflops'] / n:.1f} | {e:.2f} | {r['gflops'] / (n * peak) * 100:.1f}% |")
     return strong, memory, one
 
 
@@ -244,6 +247,7 @@ def fig_hpl_scaling(strong, memory, one, path):
     for c, s in zip(cores[-3:], speed[-3:]):
         a.annotate(f"{s:.1f}", (c, s), xytext=(0, -13), textcoords="offset points", ha="center", fontsize=8, color=INK)
     a.set_xlabel("core (N = 41280 fisso)", color=INK2, fontsize=9)
+    a.set_title("strong scaling: stessa matrice, più core", fontsize=9, color=INK)
     a.set_ylabel("speedup  T₁ / T", color=INK2, fontsize=9)
     a.legend(loc="upper left", fontsize=8, frameon=False, labelcolor=INK2)
 
@@ -260,10 +264,129 @@ def fig_hpl_scaling(strong, memory, one, path):
     b.set_xlim(0.85, 10.5)
     b.set_xlabel("nodi (2 processi × 8 thread per nodo)", color=INK2, fontsize=9)
     b.set_ylabel("efficienza rispetto a 1 nodo", color=INK2, fontsize=9)
+    b.set_title("efficienza per nodo: strong e memory-scaled", fontsize=9, color=INK)
     b.legend(loc="lower left", fontsize=8, frameon=False, labelcolor=INK2)
     fig.tight_layout()
     fig.savefig(path, dpi=200, facecolor=SURFACE)
     plt.close(fig)
+
+
+def fig_hpl_memory(memory, path, peak):
+    """Memory-scaled, griglia 2x3. Colonne: N contro p (come è impostato l'esperimento);
+    GFLOP/s contro p (il risultato: ideale lineare, picco teorico); memoria, lavoro e
+    tempo per processo rispetto a un nodo. Righe: assi lineari e log-log (una legge p^a
+    è una retta di pendenza a). Linee: previsioni; punti: run misurati."""
+    import numpy as np
+    import seaborn as sns
+
+    one = memory[0]
+    ps = np.array([r["P"] * r["Q"] for r in memory])
+    p1 = ps[0]
+    Ns = np.array([r["N"] for r in memory])
+    mem = (Ns ** 2 / ps) / (one["N"] ** 2 / p1)
+    time = np.array([r["time"] for r in memory]) / one["time"]
+    ideal = np.sqrt(ps / p1)
+    rate = np.array([r["gflops"] for r in memory])
+    labels = [f"{p}\n({p // 2} nod{'o' if p == 2 else 'i'})" for p in ps]
+    point = dict(linestyle="none", markersize=7, markeredgecolor="white", markeredgewidth=1.2, zorder=4)
+
+    rc = {"mathtext.fontset": "stix", "font.family": "STIXGeneral", "axes.edgecolor": INK2,
+          "xtick.color": INK2, "ytick.color": INK2, "axes.labelcolor": INK, "figure.facecolor": "white",
+          "axes.facecolor": "white", "savefig.facecolor": "white"}
+    with sns.axes_style("ticks"), sns.plotting_context("paper", font_scale=1.2), plt.rc_context(rc):
+        fig, axes = plt.subplots(2, 3, figsize=(13.2, 7.4))
+        for row, log in enumerate((False, True)):
+            a, g, b = axes[row]
+            grid = np.geomspace(p1 / 1.3, ps[-1] * 1.3, 200) if log else np.linspace(0, ps[-1] * 1.12, 300)
+
+            # Colonna sinistra: N.
+            a.plot(grid, one["N"] * np.sqrt(grid / p1), color=INK2, linewidth=1.6, linestyle="--",
+                   label="previsto: $N = N_1\\sqrt{p/p_1}$")
+            a.plot(ps, Ns, marker="o", color=BLUE, label="$N$ usato nei run", **point)
+            for x, n in zip(ps, Ns):
+                a.annotate(f"{n:,}".replace(",", "\u2009"), (x, n), xytext=(-7, 7), textcoords="offset points",
+                           ha="right", fontsize=9, color=INK)
+            a.set_ylabel("ordine della matrice $N$")
+
+            # Colonna centrale: GFLOP/s totali. Ideale: ogni processo mantiene la sua velocità.
+            g.plot(grid, rate[0] * grid / p1, color=INK2, linewidth=1.6, linestyle="--",
+                   label="ideale: $R_1\\,p/p_1$ (efficienza 1)")
+            g.plot(grid, peak * grid / 2, color=INK2, linewidth=1, linestyle=":",
+                   label=f"picco teorico ({peak:.0f} GFLOP/s per nodo)")
+            g.plot(ps, rate, marker="o", color=BLUE, label="HPL misurato", **point)
+            for x, rr in zip(ps[1:], rate[1:]):
+                e = rr / (rate[0] * x / p1)
+                g.vlines(x, rr, rate[0] * x / p1, color=BLUE, linewidth=1, linestyle=":", zorder=3)
+                g.annotate(f"$E$ = {e:.2f}", (x, rr), xytext=(7, -10), textcoords="offset points",
+                           fontsize=9, color=BLUE)
+            g.set_ylabel("HPL [GFLOP/s]")
+
+            # Colonna destra: grandezze per processo rispetto a p1.
+            b.plot(grid, np.ones_like(grid), color=AQUA, linewidth=1.6, linestyle="--",
+                   label="previsto: memoria costante")
+            b.plot(grid, np.sqrt(grid / p1), color=ORANGE, linewidth=1.6, linestyle="--",
+                   label="previsto: lavoro $\\propto \\sqrt{p}$ (tempo ideale)")
+            b.plot(ps, mem, marker="s", color=AQUA, label="memoria per processo $8N^2/p$", **point)
+            b.plot(ps, time, marker="o", color=BLUE, label="tempo misurato $T/T_1$", **point)
+            for x, t, w in zip(ps[1:], time[1:], ideal[1:]):
+                b.vlines(x, w, t, color=BLUE, linewidth=1, linestyle=":", zorder=3)
+                b.annotate(f"×{t / w:.2f}", (x, (t * w) ** 0.5 if log else (t + w) / 2), xytext=(-5, 0),
+                           textcoords="offset points", ha="right", va="center", fontsize=9, color=BLUE)
+            b.set_ylabel("rispetto al run su 1 nodo")
+
+            for ax in (a, g, b):
+                if log:
+                    ax.set_xscale("log", base=2)
+                    ax.set_yscale("log", base=2)
+                    ax.set_xlim(grid[0], grid[-1])
+                    ax.minorticks_off()
+                else:
+                    ax.set_xlim(0, grid[-1])
+                    ax.set_ylim(bottom=0)
+                if log:
+                    ax.set_xticks(ps, labels)
+                else:
+                    ax.set_xticks([0, 2, 4, 6, 8, 10, 12, 14, 16])
+                ax.grid(color=GRID, linewidth=0.7)
+                ax.set_axisbelow(True)
+                sns.despine(ax=ax)
+            if log:
+                a.set_yticks([40000, 60000, 80000, 120000], ["40 000", "60 000", "80 000", "120 000"])
+                a.set_ylim(33000, 145000)
+                a.text(5.0, 50500, "pendenza 1/2", rotation=21, fontsize=9, color=INK2)
+                g.set_yticks([250, 500, 1000, 2000], ["250", "500", "1000", "2000"])
+                g.set_ylim(200, 3600)
+                g.text(2.55, 560, "pendenza 1", rotation=33, fontsize=9, color=INK2)
+                g.set_xlabel("processi MPI $p$ (scala log)")
+                b.set_yticks([1, 2, 4], ["1", "2", "4"])
+                b.set_ylim(0.75, 7)
+                b.text(9.0, 1.68, "pendenza 1/2", rotation=21, fontsize=9, color=ORANGE)
+                b.text(9.5, 0.88, "pendenza 0", fontsize=9, color=AQUA)
+                a.set_xlabel("processi MPI $p$ (scala log)")
+                b.set_xlabel("processi MPI $p$ (scala log)")
+            else:
+                a.set_ylim(0, 135000)
+                a.set_yticks([0, 40000, 80000, 120000], ["0", "40 000", "80 000", "120 000"])
+                b.set_ylim(0, 5.9)
+                g.set_ylim(0, 2900)
+                g.legend(loc="upper left", fontsize=8.5, frameon=False)
+                g.set_xlabel("processi MPI $p$  (2 per nodo)")
+                a.legend(loc="upper left", fontsize=9, frameon=False)
+                b.legend(loc="upper left", fontsize=8.5, frameon=False)
+                a.set_xlabel("processi MPI $p$  (2 per nodo)")
+                b.set_xlabel("processi MPI $p$  (2 per nodo)")
+        for ax, letter in zip(axes.flat, "abcdef"):
+            ax.text(-0.14, 1.04, f"({letter})", transform=ax.transAxes, fontsize=12, fontweight="bold", color=INK)
+        axes[0, 0].set_title("$N \\propto \\sqrt{p}$", fontsize=12, color=INK)
+        axes[0, 1].set_title("il risultato: GFLOP/s totali", fontsize=12, color=INK)
+        axes[0, 2].set_title("per processo: memoria costante, lavoro $\\propto \\sqrt{p}$", fontsize=12, color=INK)
+        fig.text(0.005, 0.74, "assi lineari", rotation=90, va="center", fontsize=11, color=INK2)
+        fig.text(0.005, 0.27, "assi log-log", rotation=90, va="center", fontsize=11, color=INK2)
+        fig.suptitle("HPL, studio memory-scaled (non strong scaling): $N$ cresce con $\\sqrt{p}$, memoria per processo "
+                     "costante.  Run S016, M02, M04, M08", fontsize=11.5, color=INK)
+        fig.tight_layout(rect=(0.02, 0, 1, 0.97), h_pad=2.0)
+        fig.savefig(path, dpi=200)
+        plt.close(fig)
 
 
 def fig_hpcg_scaling(weak, strong, path):
@@ -364,7 +487,8 @@ def main():
     if f and any(r["name"].startswith("M") for r in hpl):
         strong, memory, one = hpl_scaling(hpl, CORES * f * FLOP_CYCLE)
         fig_hpl_scaling(strong, memory, one, FIG / "es05-hpl-scaling.png")
-        names.append("es05-hpl-scaling.png")
+        fig_hpl_memory(memory, FIG / "es05-hpl-memory.png", CORES * f * FLOP_CYCLE)
+        names += ["es05-hpl-scaling.png", "es05-hpl-memory.png"]
     if any(r["name"].startswith("W") for r in hpcg):
         weak, strong = hpcg_scaling(hpcg)
         fig_hpcg_scaling(weak, strong, FIG / "es05-hpcg-scaling.png")

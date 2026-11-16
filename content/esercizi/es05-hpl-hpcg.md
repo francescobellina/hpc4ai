@@ -689,9 +689,11 @@ di ciascuno si riduce.
 :name: fig-es05-hpl-scaling
 :width: 100%
 
-HPL su nodi Sandy Bridge. A sinistra: strong scaling a $N$ = 41280, speedup rispetto
-a 1 core (assi logaritmici; tratteggio: speedup ideale). A destra: efficienza
-rispetto a un nodo per lo strong scaling e per lo studio memory-scaled.
+HPL, **strong scaling** (matrice fissa, $N$ = 41280; run `S001`–`S128`) su nodi
+Sandy Bridge. A sinistra: speedup rispetto a 1 core, da 1 core a 8 nodi (assi
+logaritmici; tratteggio: speedup ideale). A destra: efficienza rispetto a un nodo;
+per confronto c'è anche la curva dello studio **memory-scaled** della sezione 8
+(run `M02`–`M08`), dove invece $N$ cresce con i nodi.
 ```
 
 Dentro un nodo lo speedup è quasi ideale fino a 2 core e arriva a 12.6 con 16 core.
@@ -710,24 +712,62 @@ il pannello va comunque inviato lungo le righe della griglia e lo scambio delle 
 di pivot lungo le colonne. Il risultato migliore in valore assoluto è a 4 nodi,
 **688 GFLOP/s**.
 
-### 8. HPL: memory-scaled
+### 8. HPL: memory-scaled, $N \propto \sqrt{p}$
 
-**Idea.** Se il problema cresce con i nodi, ogni nodo ha sempre la stessa quantità di
+**Idea.** A differenza dello strong scaling della sezione 7, qui la matrice **non**
+resta fissa. Se il problema cresce con i nodi, ogni nodo ha sempre la stessa quantità di
 dati (12.7 GiB) e il calcolo resta grande rispetto alla comunicazione. L'ideale è
 che ogni nodo renda come da solo: $R_k = k \cdot R_1$, cioè efficienza
 $E = R_k / (k R_1) = 1$. Il lavoro per nodo però cresce come $\sqrt{k}$
 ({ref}`t-hpl-scaling`), quindi anche nel caso ideale il tempo cresce.
 
-:::{table} HPL memory-scaled, 2 processi × 8 thread per nodo, 12.7 GiB di matrice per nodo. Tempo ideale: $T_1\sqrt{k}$, cioè quello a efficienza 1.
+:::{table} HPL memory-scaled, 2 processi × 8 thread per nodo ($p = 2k$). $N$ cresce come $\sqrt{k}$: $N/\sqrt{k}$ resta 41280 a meno dell'arrotondamento a multipli di 192. Memoria per processo $8N^2/p$, lavoro per processo $\tfrac23 N^3/p$ rispetto a un nodo; tempo ideale $T_1\sqrt{k}$, cioè quello a efficienza 1.
 :name: tab-es05-hpl-memory
 
-| Nodi | $N$ | $P \times Q$ | Time (s) | Tempo ideale (s) | GFLOP/s | GFLOP/s per nodo | Efficienza | Frazione del picco |
-|---|---|---|---|---|---|---|---|---|
-| 1 | 41280 | 1 × 2 | 179.9 | — | 260.7 | 260.7 | 1.00 | 84.9% |
-| 2 | 58368 | 2 × 2 | 292.4 | 254.4 | 453.3 | 226.7 | 0.87 | 73.8% |
-| 4 | 82560 | 2 × 4 | 422.9 | 359.7 | 887.2 | 221.8 | 0.85 | 72.2% |
-| 8 | 116736 | 4 × 4 | 927.1 | 508.7 | **1144.0** | 143.0 | 0.55 | 46.6% |
+| Nodi $k$ | $N$ | $N/\sqrt{k}$ | $P \times Q$ | Memoria per processo | Lavoro per processo | Time (s) | Tempo ideale (s) | GFLOP/s | GFLOP/s per nodo | Efficienza | Frazione del picco |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 41280 | 41280 | 1 × 2 | 6.35 GiB | 1.00 | 179.9 | — | 260.7 | 260.7 | 1.00 | 84.9% |
+| 2 | 58368 | 41272 | 2 × 2 | 6.35 GiB | 1.41 | 292.4 | 254.4 | 453.3 | 226.7 | 0.87 | 73.8% |
+| 4 | 82560 | 41280 | 2 × 4 | 6.35 GiB | 2.00 | 422.9 | 359.7 | 887.2 | 221.8 | 0.85 | 72.2% |
+| 8 | 116736 | 41272 | 4 × 4 | 6.35 GiB | 2.83 | 927.1 | 508.7 | **1144.0** | 143.0 | 0.55 | 46.6% |
 :::
+
+```{figure} figures/es05-hpl-memory.png
+:name: fig-es05-hpl-memory
+:width: 100%
+
+HPL, studio **memory-scaled** (non strong scaling): $N$ cresce come $\sqrt{p}$ e la
+memoria per processo resta costante; run `S016` (1 nodo, lo stesso punto di
+partenza dello strong scaling), `M02`, `M04`, `M08`. Lo strong scaling, con $N$
+fisso, è nella {numref}`fig-es05-hpl-scaling`. $p$ è il numero di processi MPI
+($p = P \times Q$, 2 per nodo da 8 thread ciascuno). Linee: previsioni; punti: i
+quattro run. **(a, d)** Come è impostato l'esperimento: $N$ sulla curva
+$N_1\sqrt{p/p_1}$. **(b, e)** Il risultato: GFLOP/s totali, con l'ideale
+$R_1\,p/p_1$ (ogni processo mantiene la sua velocità, efficienza 1) e il picco
+teorico; accanto a ogni punto l'efficienza $E$. **(c, f)** Perché i run durano di
+più: rispetto al run su un nodo, la memoria per processo è costante e il lavoro per
+processo cresce come $\sqrt{p}$, che è il tempo a efficienza 1; il tempo misurato
+sta sopra di ×1.15, ×1.18 e ×1.82 = $1/E$. In alto assi lineari, in basso log-log,
+dove ogni legge $p^a$ è una retta di pendenza $a$.
+```
+
+**Segue l'andamento previsto?** $N$ e memoria per processo sì, per costruzione:
+$N/\sqrt{k}$ si scosta dal valore di un nodo al massimo dello 0.02%, solo per
+l'arrotondamento a multipli di 192. Il tempo dovrebbe crescere come $\sqrt{p}$: lo
+segue con un fattore quasi costante fino a 4 nodi (×1.15 e ×1.18 sopra la retta,
+cioè efficienza 0.87 e 0.85), mentre a 8 nodi se ne stacca (×1.82, efficienza
+0.55). Nei pannelli log-log (e, f) la differenza si vede subito: fino a 8 processi i
+punti corrono quasi paralleli alle rette ideali, l'ultimo se ne stacca. I GFLOP/s
+(b, e) sono la grandezza che HPL misura e il risultato dello scaling; il tempo
+(c, f) mostra l'avvertimento della consegna sulla durata dei casi grandi.
+
+Il grafico mostra anche il punto della consegna. Tenere costante la **memoria** per
+processo non tiene costante il **lavoro**: a 8 nodi ogni processo ha gli stessi
+6.35 GiB di matrice ma deve fare 2.83 volte più operazioni. Una stima basata solo
+sulla memoria ("stessi dati per processo, stesso tempo") darebbe 180 s anche a 8
+nodi; il tempo ideale è già 509 s, e quello misurato è 927 s. Per questo non è
+*weak scaling* classico, che terrebbe costante il lavoro con $N \propto p^{1/3}$
+(a 8 nodi $N = 82560$, con 3.2 GiB per processo).
 
 Come previsto, tenere grande il problema aiuta: a 2 e 4 nodi l'efficienza è 0.87 e
 0.85, contro 0.80 e 0.66 a $N$ fisso. Il primo passo da 1 a 2 nodi costa il 13%,

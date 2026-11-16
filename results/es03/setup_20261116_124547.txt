@@ -1,0 +1,107 @@
+
+========== 0. Login node ==========
+[fbellina2@wilson es03]$ date
+Mon Nov 16 12:45:47 PM CET 2026
+[fbellina2@wilson es03]$ hostname
+wilson.bicqcd.internal
+
+========== 1. File del corso ==========
+[fbellina2@wilson es03]$ ls -lh /srv/data/wilson/project/hpc4ai/exercises/tiny_stories
+total 637M
+-rw-r-----. 1 marcoce hpc4ai 1.1K Jul 23  2023 LICENSE
+-rw-r-----. 1 marcoce hpc4ai  764 Oct 23 17:33 prompts.txt
+-rw-r-----. 1 marcoce hpc4ai  38K Oct 23 17:33 run.c
+-rw-r-----. 1 marcoce hpc4ai 419M Jul 27  2023 stories110M.bin
+-rw-r-----. 1 marcoce hpc4ai  58M Jul 27  2023 stories15M.bin
+-rw-r-----. 1 marcoce hpc4ai 160M Jul 27  2023 stories42M.bin
+-rw-r-----. 1 marcoce hpc4ai 424K Aug  7  2023 tokenizer.bin
+[fbellina2@wilson es03]$ sha256sum /srv/data/wilson/project/hpc4ai/exercises/tiny_stories/run.c /srv/data/wilson/project/hpc4ai/exercises/tiny_stories/tokenizer.bin /srv/data/wilson/project/hpc4ai/exercises/tiny_stories/prompts.txt
+2eebe23ba0ddfe3eb18f26f20dd5b89a94e6cff5682166b1b6d2eff4dfc1b24a  /srv/data/wilson/project/hpc4ai/exercises/tiny_stories/run.c
+50a52ef822ee9e83de5ce9d0be0a025a773d019437f58b5ff9dcafb063ece361  /srv/data/wilson/project/hpc4ai/exercises/tiny_stories/tokenizer.bin
+7ef0854e35a3110b1ac64f578dc00f67a00b111a8f692cdf9ab27058df9161fb  /srv/data/wilson/project/hpc4ai/exercises/tiny_stories/prompts.txt
+[fbellina2@wilson es03]$ ls -l
+total 23
+-rw-r--r--. 1 fbellina2 users   5064 Nov 16 11:06 es03.sh
+drwxr-xr-x. 2 fbellina2 users      3 Nov 16 12:45 logs
+-rw-r-----. 1 fbellina2 users    764 Nov 16 12:45 prompts.txt
+-rw-r-----. 1 fbellina2 users  38461 Nov 16 12:45 run.c
+-rw-r-----. 1 fbellina2 users 433869 Nov 16 12:45 tokenizer.bin
+-rw-r--r--. 1 fbellina2 users   1566 Nov 16 11:06 triad.c
+[fbellina2@wilson es03]$ wc -l run.c prompts.txt
+  971 run.c
+   32 prompts.txt
+ 1003 total
+
+========== 2. Compilazione (GCC/13.2.0) ==========
+[fbellina2@wilson es03]$ gcc --version
+gcc (GCC) 13.2.0
+Copyright (C) 2023 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+[fbellina2@wilson es03]$ gcc -O3 -o run run.c -lm
+[fbellina2@wilson es03]$ gcc -O3 -pg -o run_pg run.c -lm
+[fbellina2@wilson es03]$ gcc -O3 -fopenmp -o triad triad.c
+
+========== 3. Prova breve sul login node (15M, 32 token) ==========
+[fbellina2@wilson es03]$ ./run /srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories15M.bin -t 0 -n 32 -i Once upon a time
+Once upon a time, there was a little girl named Lily. She loved to play outside in the sunshine. One day, she saw a bigachieved tok/s: 53.913043
+
+
+========== 4. Job di baseline ==========
+[fbellina2@wilson es03]$ cat baseline.sh
+#!/usr/bin/bash
+#SBATCH --job-name=es03_baseline
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --hint=nomultithread
+#SBATCH --exclusive
+#SBATCH --mem=0
+#SBATCH --partition=wilson
+#SBATCH --constraint=sandy_bridge
+#SBATCH --time=01:00:00
+
+set -uo pipefail
+cd "$SLURM_SUBMIT_DIR"
+module load GCC/13.2.0
+echo "Job: $SLURM_JOB_ID; nodo: $SLURM_JOB_NODELIST"
+lscpu
+module list 2>&1
+command -v perf && perf --version
+
+one() { srun --ntasks=1 --cpus-per-task=1 --cpu-bind=cores "$@"; }
+
+echo "=== 1. Baseline seriale: 256 token, -t 0, prompt \"Once upon a time\""
+for m in 15M 42M 110M; do
+    for r in 1 2 3; do
+        echo "--- stories$m run $r"
+        one ./run "/srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories$m.bin" -t 0 -n 256 -i "Once upon a time" > "out_${m}_r$r.txt" 2> "tok_${m}_r$r.txt"
+        cat "tok_${m}_r$r.txt"
+    done
+    cmp -s "out_${m}_r1.txt" "out_${m}_r2.txt" && cmp -s "out_${m}_r1.txt" "out_${m}_r3.txt" \
+        && echo "stories$m: testo identico nelle 3 ripetizioni" || echo "stories$m: TESTO DIVERSO fra le ripetizioni"
+done
+
+echo "=== 2. Profilo con gprof"
+for m in 15M 110M; do
+    mkdir -p "gprof_$m" && ln -sf ../tokenizer.bin "gprof_$m/" && ( cd "gprof_$m" && one ../run_pg "/srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories$m.bin" -t 0 -n 256 -i "Once upon a time" > /dev/null 2>&1 \
+        && gprof -b -p ../run_pg gmon.out | head -25 )
+done
+if command -v perf >/dev/null; then
+    echo "=== 2b. Profilo con perf (110M)"
+    one perf record -o perf_110M.data ./run "/srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories110M.bin" -t 0 -n 256 -i "Once upon a time" > /dev/null 2>&1
+    perf report -i perf_110M.data --stdio --sort symbol 2>/dev/null | grep -v '^#' | grep -v '^$' | head -20
+fi
+
+echo "=== 3. Banda di memoria (triad)"
+for t in 1 2 4 8 16; do
+    OMP_NUM_THREADS=$t OMP_PLACES=cores OMP_PROC_BIND=spread \
+        srun --ntasks=1 --cpus-per-task=16 --cpu-bind=cores ./triad
+done
+Inviato job 61832
+[fbellina2@wilson es03]$ squeue -u fbellina2
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+             61832    wilson es03_bas fbellina PD       0:00      1 (None)

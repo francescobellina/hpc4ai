@@ -6,5 +6,6 @@ ipykernel>=6
 jupyterlab>=4
 numpy
 matplotlib
+seaborn
 pandas
 pyyaml
