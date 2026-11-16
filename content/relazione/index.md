@@ -243,11 +243,12 @@ reduce the number of passes over the 128 MiB matrix (loop fusion).
 ### Setup
 
 HPL (`HPL/2.3`, `NB` = 192) and HPCG (`HPCG/3.1`, 60 s requested) were run on the
-`sandy_bridge` nodes of WILSON, one exclusive node per run, starting from the course
-batch scripts and changing one aspect at a time. Every run was kept with its input
-file, batch script and output; all HPL runs report `PASSED` (largest residual
-$5.3 \times 10^{-3}$ against a threshold of 16) and all HPCG runs `VALID`; all jobs
-ended `COMPLETED 0:0`.
+`sandy_bridge` nodes of WILSON, always with exclusive nodes (one for the
+single-node runs, up to all eight for scaling), starting from the course batch
+scripts and changing one aspect at a time. Every run was kept with its input
+file, batch script and output; all 36 HPL runs report `PASSED` (largest residual
+$5.3 \times 10^{-3}$ against a threshold of 16) and all 21 HPCG runs `VALID`; all 57
+jobs ended `COMPLETED 0:0`.
 
 ### Single node
 
@@ -278,12 +279,87 @@ is spent in `DGEMM`; the grid shape matters more (1 × 16 with 16 processes: −
 For HPCG only MPI pays off: the multigrid part does not use the threads, so with
 1 × 16 the rate drops by 85%.
 
+The problem size $N = 41280$ (12.7 GiB) was chosen from the size series: going from
+12288 to 24576 gains 16.7%, from 24576 to 41280 only 8.2%, at 84% of peak. A
+full-memory run with $N = 82560$ (50.8 GiB, run `R01`, 2 × 8) reaches
+268.3 GFLOP/s, **87.4%** of peak, only 3.1% above $N = 41280$ but 7.8 times longer
+(1398 s). The layout ranking was not re-checked at $N = 82560$.
+
 ### Scaling
 
-**To be completed** with the multi-node campaign (27 jobs submitted on 9 November
-2026): HPL strong scaling at fixed $N$ and memory-scaled runs
-($N_p \propto \sqrt{p}$); HPCG weak and strong scaling based on the validated rate,
-$S_p^{(R)} = R_p/R_1$ and $E_p^{(R)} = S_p^{(R)}/p$, at the same requested duration.
+**The question.** If we double the resources, does the work go twice as fast? In
+the ideal case the efficiency, the rate per node compared with one node alone,
+stays at 1. In practice the nodes must exchange data over the network, and that
+cost does not shrink when nodes are added. We tested two ways of growing, up to the
+8 `sandy_bridge` nodes of the partition: a fixed problem (strong scaling) and a
+problem that grows with the nodes (memory-scaled HPL with $N \propto \sqrt{p}$, weak
+HPCG with a fixed 104³ grid per process). Each node runs the best single-node
+layout: 2 × 8 for HPL and 16 × 1 for HPCG. There is one run per point; all 12 HPL
+runs report `PASSED` and all 15 HPCG runs `VALID`.
+
+:::{table} Efficiency per node relative to one full node (HPL: $T_1/(k\,T_k)$ for strong and $R_k/(k R_1)$ for memory-scaled; HPCG: $R_k/(k R_1)$ on the validated rate, 60 s requested).
+:name: r-tab-es05-scaling
+
+| Nodes | HPL strong, $N$ = 41280 | HPL memory-scaled | HPCG weak, 104³ per process | HPCG strong, 256³ |
+|---|---|---|---|---|
+| 1 | 1.00 (179.9 s) | 1.00 ($N$ = 41280) | 1.00 (8.70 GFLOP/s) | 1.00 (8.64 GFLOP/s) |
+| 2 | 0.80 (112.1 s) | 0.87 ($N$ = 58368) | 0.95 (16.53) | 0.98 (16.90) |
+| 4 | 0.66 (68.2 s) | 0.85 ($N$ = 82560) | 0.81 (28.27) | 0.44 (15.33) |
+| 8 | 0.27 (82.2 s) | 0.55 ($N$ = 116736) | 0.64 (44.63) | 0.18 (12.10) |
+:::
+
+:::{figure} ../esercizi/figures/es05-hpl-scaling.png
+:name: r-fig-hpl-scaling
+:width: 90%
+
+HPL. Left: strong scaling at $N = 41280$, speedup over one core (log axes; dashed:
+ideal). Right: efficiency relative to one node, strong and memory-scaled.
+:::
+
+**HPL.** At fixed $N$ the time falls from 180 s on one node to 68 s on four
+(688 GFLOP/s, the best absolute value), then *rises* to 82 s on eight nodes: each
+process holds only 0.8 GiB of the matrix, so computation shrinks while panel
+broadcasts and pivot-row swaps do not. Growing the matrix with the nodes keeps the
+efficiency at 0.85 up to four nodes. On eight nodes both series drop sharply
+(memory-scaled 0.55, 1144 GFLOP/s, 927 s against 509 s expected at constant
+efficiency). Two things change at eight nodes, the process grid (4 × 4 instead of
+2 × 4) and the use of all eight nodes, and with one run per point we cannot tell
+these causes apart. Inside a node the one-core run reaches 108% of the 2.40 GHz
+per-core peak, because turbo raises the clock when few cores are active; efficiency
+is therefore quoted relative to a full node.
+
+:::{figure} ../esercizi/figures/es05-hpcg-tempi.png
+:name: r-fig-hpcg-times
+:width: 90%
+
+HPCG strong scaling (global grid 256³): share of benchmark time in the multigrid
+(MG), sparse matrix-vector product (SpMV), dot products with global sum (DDOT) and
+vector updates (WAXPBY).
+:::
+
+**HPCG.** Inside a node HPCG almost stops scaling before the cores run out: going from 8 to
+16 processes raises the bandwidth reported by HPCG only from 58.7 to 67.5 GB/s, and
+the rate by 17%. Across nodes each node adds its own memory bandwidth, so weak
+scaling reaches 44.6 GFLOP/s on eight nodes (efficiency 0.64). In strong scaling the
+best rate is on two nodes (16.9 GFLOP/s); beyond that the rate falls although the
+multigrid keeps scaling (17.7, 30.1 and 50.3 GFLOP/s on 2, 4 and 8 nodes), because the global sums in
+`DDOT` (`MPI_Allreduce`, a synchronisation point at every iteration) grow from 3% to
+50% and 77% of the time. The data summed are a few numbers, so the cost is latency
+and waiting for the slowest process; the logs do not separate the two.
+
+:::{table} Best results against the theoretical peak (307.1 GFLOP/s per node at 2.40 GHz).
+:name: r-tab-es05-final
+
+| Nodes | HPL (GFLOP/s) | HPL / peak | HPCG (GFLOP/s) | HPCG / peak |
+|---|---|---|---|---|
+| 1 | 268.3 ($N$ = 82560) | 87.4% | 8.70 | 2.83% |
+| 8 | 1144.0 ($N$ = 116736) | 46.6% | 44.63 (weak) | 1.82% |
+:::
+
+HPL stays about 30 times closer to the peak than HPCG at every node count. Both lose
+efficiency on eight nodes for different reasons: HPL in the step from four to eight
+nodes, HPCG first inside the node (memory bandwidth) and then across nodes (global
+reductions).
 
 ## Summary
 
@@ -296,7 +372,7 @@ $S_p^{(R)} = R_p/R_1$ and $E_p^{(R)} = S_p^{(R)}/p$, at the same requested durat
 | 2 — Parallel Hello | — | to be completed on WILSON |
 | 3 — Tiny stories | — | not run |
 | 4 — Profiling | loop swap: 3.83× overall, 10.3× on the hotspot; IPC from 0.52 to 2.12 | passed, bit-identical checksums |
-| 5 — HPL/HPCG | one node: HPL 85% of peak, HPCG 2.8% | 24 HPL `PASSED`, 6 HPCG `VALID` |
+| 5 — HPL/HPCG | one node: HPL 85–87% of peak, HPCG 2.8%; eight nodes: HPL 1144 GFLOP/s (47%), HPCG 44.6 GFLOP/s (1.8%) | 36 HPL `PASSED`, 21 HPCG `VALID` |
 :::
 
 Exercises 4 and 5 show the same lesson from two sides: performance is set by how

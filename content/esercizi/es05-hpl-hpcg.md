@@ -40,12 +40,6 @@ benchmark raggiunge la frazione più alta del picco, e perché?
 - **6. MPI** — {ref}`Programmazione ibrida MPI + OpenMP <ibrido-mpi-openmp>`
 :::
 
-:::{note} Stato del lavoro
-Questa pagina contiene la parte su un nodo (punti 1, 2, 4 e il confronto con il
-picco su un nodo). Gli studi di scaling del punto 3 sono in esecuzione e saranno
-aggiunti nella sezione dei risultati.
-:::
-
 :::{tip} L'esercizio in breve
 **Cosa misuriamo.** Due benchmark opposti sullo stesso tipo di nodo. HPL risolve un
 sistema di equazioni denso: quasi tutto calcolo, con ogni dato riusato molte volte.
@@ -69,6 +63,26 @@ mezzo (4 processi × 4 thread, 2 × 8, ...). Quale divisione va più veloce, e p
 - **Picco**: alla frequenza misurata durante il run (2.40 GHz) un nodo può fare
   307 GFLOP/s. HPL ne usa l'**85%**, HPCG il **2.8%**: il primo è limitato dal
   calcolo, il secondo dalla memoria.
+
+**La domanda su più nodi.** Se raddoppiamo le risorse, il lavoro va il doppio più
+veloce? Nel caso ideale sì: l'**efficienza** (quanto rende ogni nodo rispetto a un
+nodo da solo) resterebbe 1. Nella realtà i nodi devono scambiarsi dati attraverso la
+rete, e quel tempo non diminuisce aggiungendo nodi. Abbiamo provato due modi di
+crescere: a problema fisso (*strong scaling*: stesso lavoro, più nodi) e a problema
+che cresce con i nodi (*memory-scaled* per HPL, *weak scaling* per HPCG: ogni nodo
+ha sempre la stessa quantità di dati).
+
+- **HPL**: a problema fisso ($N$ = 41280) il tempo scende da 180 s su un nodo a 68 s
+  su 4 nodi, ma a 8 nodi **risale** a 82 s: ogni nodo ha troppo poco lavoro rispetto
+  alla comunicazione. Facendo crescere la matrice con i nodi l'efficienza resta
+  circa 0.85 fino a 4 nodi; a 8 nodi scende a 0.55 (0.27 a problema fisso).
+- **HPCG**: con dati fissi per processo il rate cresce fino a **44.6 GFLOP/s su 8
+  nodi** (efficienza per nodo 0.64). A problema fisso il massimo è a 2 nodi
+  (16.9 GFLOP/s); oltre, il tempo passato nelle somme globali (`DDOT`, che
+  sincronizzano tutti i processi) arriva al 77% del totale.
+- **Picco su 8 nodi**: HPL al **47%**, HPCG all'**1.8%**. Già dentro un nodo HPCG
+  guadagna solo il 17% passando da 8 a 16 processi, perché la banda di memoria del
+  nodo è quasi satura.
 
 Il resto della pagina mostra come sono stati costruiti i run, come sono stati
 validati e i dettagli di ogni misura.
@@ -100,7 +114,7 @@ validati e i dettagli di ogni misura.
 
 ## Parametri
 
-:::{table} Macchina, software e parametri dei benchmark (job `61221`–`61344`).
+:::{table} Macchina, software e parametri dei benchmark (job `61221`–`61344` su un nodo, `61392`–`61418` per lo scaling).
 :name: tab-es05-params
 
 | Parametro | Valore |
@@ -113,8 +127,10 @@ validati e i dettagli di ogni misura.
 | Risorse Slurm | 1 nodo esclusivo (`--exclusive`), tutta la memoria (`--mem=0`, `ReqMem` 62500M), `--hint=nomultithread` |
 | HPL | variante `WR11C2R4`: `NB` = 192, `PFACT` Right, `NBMIN` 4, `NDIV` 2, `RFACT` Crout, `BCAST` 1ringM, `DEPTH` 1, `SWAP` mix (soglia 64), soglia del residuo 16.0; $N$ = 12288, 24576, 41280 |
 | HPCG | durata richiesta 60 s; griglia globale 416 × 208 × 208 in tutte le ripartizioni |
-| Ripetizioni | HPL a $N$ = 41280: 3 run per ripartizione; HPCG: 1 run per ripartizione, più la baseline ripetuta |
+| Ripetizioni | HPL a $N$ = 41280: 3 run per ripartizione; HPCG: 1 run per ripartizione, più la baseline ripetuta; scaling: 1 run per punto |
 | Frequenza misurata | 2.40 GHz con `perf stat` durante HPL (job `61344`) |
+| Scaling HPL | 2 processi × 8 thread per nodo (il migliore su un nodo); strong a $N$ = 41280 da 1 core a 8 nodi; memory-scaled a $N$ = 41280, 58368, 82560, 116736 su 1, 2, 4, 8 nodi |
+| Scaling HPCG | 16 processi × 1 thread per nodo (il migliore su un nodo), 60 s; weak con griglia locale 104³ da 1 a 128 processi; strong con griglia globale 256³ da 1 a 128 processi |
 :::
 
 ## Implementazione
@@ -349,15 +365,52 @@ i core richiesti e mostrano la differenza di distribuzione fra i due script: HPL
 riempie un socket alla volta (`block:block`), HPCG usa il default di Slurm, che
 alterna i socket (task 0 sul core 0, task 1 sul core 8, ...).
 
+### Configurazioni degli studi di scaling
+
+**In breve.** Su più nodi si usa la ripartizione per nodo che ha vinto il confronto
+su un nodo, e la si ripete uguale su ogni nodo: per HPL 2 processi × 8 thread, per
+HPCG 16 processi × 1 thread. Cambiano solo il numero di nodi, la griglia dei
+processi e, dove serve, la dimensione del problema.
+
+Le cartelle sono generate da `es05.sh hpl-scaling` e `es05.sh hpcg-scaling` con lo
+stesso `patch_script` di sopra, cambiando anche `--nodes`. Tutti i job usano
+`--constraint=sandy_bridge`: la partizione ha solo 8 nodi di questo tipo, quindi
+8 nodi è il massimo senza mescolare generazioni di CPU.
+
+- **HPL strong** ($N$ = 41280 fisso). Fino a 8 core c'è un solo processo con 1, 2,
+  4 o 8 thread; da 16 core in su ogni nodo ha 2 processi da 8 thread, con griglia
+  $P \times Q$ = 1 × 2, 2 × 2, 2 × 4, 4 × 4 per 1, 2, 4, 8 nodi.
+- **HPL memory-scaled**. Per tenere fissa la memoria per nodo, $N$ cresce come
+  $\sqrt{\text{nodi}}$ ed è arrotondato al multiplo di $NB$ = 192 più vicino:
+  $41280 = 215 \cdot 192$; $215\sqrt{2} = 304.1$, quindi $N = 304 \cdot 192 = 58368$;
+  poi $430 \cdot 192 = 82560$ e $608 \cdot 192 = 116736$. La matrice per nodo è
+  $8N^2/\text{nodi} = 12.7$ GiB in tutti e quattro i casi. Il punto a 1 nodo è il run
+  strong a 16 core.
+- **HPL a memoria piena** (`R01`). Un run su un nodo con $N$ = 82560 (50.8 GiB, circa
+  l'83% dei 62500 MB del nodo), per il confronto finale con il picco.
+- **HPCG weak**. Griglia locale 104³ per processo in tutti i run, quindi la griglia
+  globale cresce con i processi (da 104³ a 832 × 416 × 416). Il punto a 16 processi
+  è il run `10_16x1` del confronto su un nodo.
+- **HPCG strong**. Griglia globale 256³ fissa: la griglia locale si dimezza a ogni
+  raddoppio dei processi (da 256³ a 32 × 64 × 64). È più piccola di quella del
+  confronto su un nodo (416 × 208 × 208), e il run da 1 processo dura comunque
+  18 minuti (102 s solo di setup).
+
+La griglia dei processi di HPCG è scelta da `es05.sh` e passata con `--npx`,
+`--npy`, `--npz`: 1 × 1 × 1, 2 × 1 × 1, 2 × 2 × 1, 2 × 2 × 2, 4 × 2 × 2, 4 × 4 × 2,
+4 × 4 × 4, 8 × 4 × 4 per 1, 2, 4, …, 128 processi.
+
 ### Comandi
 
 Sul login node di WILSON, nella home:
 
 ```bash
-bash es05.sh setup     # file del corso, sinfo, module spider, lscpu, baseline
-bash es05.sh node      # ripartizioni MPI x thread su un nodo
-bash es05.sh repeat    # run 2 e 3 delle ripartizioni HPL, run con perf stat
-bash es05.sh collect   # input, output, sacct e tabella riassuntiva in un log
+bash es05.sh setup         # file del corso, sinfo, module spider, lscpu, baseline
+bash es05.sh node          # ripartizioni MPI x thread su un nodo
+bash es05.sh repeat        # run 2 e 3 delle ripartizioni HPL, run con perf stat
+bash es05.sh hpl-scaling   # HPL strong, memory-scaled e N = 82560 su un nodo
+bash es05.sh hpcg-scaling  # HPCG weak e strong
+bash es05.sh collect       # input, output, sacct e tabella riassuntiva in un log
 ```
 
 Sul Mac, il log di `collect` viene letto da
@@ -365,22 +418,27 @@ Sul Mac, il log di `collect` viene letto da
 figure di questa pagina:
 
 ```bash
-.venv/bin/python codes/exec5/analyze_es05.py results/es05/collect_20261109_121824.txt
+.venv/bin/python codes/exec5/analyze_es05.py results/es05/collect_20261116_091615.txt
 ```
+
+Il log del 16 novembre contiene tutti i run, su un nodo e di scaling; quello del
+9 novembre (`collect_20261109_121824.txt`) solo quelli su un nodo e dà le stesse
+tabelle e figure per quella parte.
 
 ## Procedura di validazione
 
 - **HPL**: ogni run calcola il residuo scalato
   $\lVert A\boldsymbol{x}-\boldsymbol{b}\rVert_\infty / \big(\varepsilon\,(\lVert A\rVert_\infty \lVert\boldsymbol{x}\rVert_\infty + \lVert\boldsymbol{b}\rVert_\infty)\,N\big)$
   con $\varepsilon = 1.11 \times 10^{-16}$, e il test passa se è minore di 16. Tutti i
-  24 run danno `PASSED`, con residui fra $2.1 \times 10^{-3}$ e $5.3 \times 10^{-3}$,
-  oltre tre ordini di grandezza sotto la soglia. Le ripetizioni della stessa
+  36 run (24 su un nodo, 12 di scaling) danno `PASSED`, con residui fra
+  $2.1 \times 10^{-3}$ e $5.3 \times 10^{-3}$, oltre tre ordini di grandezza sotto la
+  soglia, anche a $N$ = 116736 su 8 nodi ($3.4 \times 10^{-3}$). Le ripetizioni della stessa
   ripartizione danno lo stesso residuo a tutte le cifre stampate: la matrice casuale
   è generata in modo deterministico, quindi le ripetizioni risolvono lo stesso
   problema.
 - **HPCG**: il risultato è `VALID` solo se superano i test di convergenza spettrale,
-  di simmetria, del numero di iterazioni e di riproducibilità; tutti i 6 run sono
-  `VALID`. Estratto dal run 16 × 1 (job `61287`):
+  di simmetria, del numero di iterazioni e di riproducibilità; tutti i 21 run (6 su
+  un nodo, 15 di scaling) sono `VALID`. Estratto dal run 16 × 1 (job `61287`):
 
   ```{code-block} text
   :class: terminal
@@ -395,7 +453,9 @@ figure di questa pagina:
   HPCG avverte che i risultati ufficiali richiedono almeno 1800 s e che usa le
   versioni di riferimento dei kernel ("Performance results are most likely
   suboptimal"); la consegna indica che i 60 s sono sufficienti per l'esercizio.
-- **Slurm**: tutti i job risultano `COMPLETED` con exit code `0:0` in `sacct`.
+- **Slurm**: tutti i 57 job risultano `COMPLETED` con exit code `0:0` in `sacct`;
+  per i job su più nodi `sacct` riporta tutti i nodi richiesti (per esempio
+  `wnode[01-08]`, 256 CPU logiche allocate, `ReqMem` 500000M per 8 nodi).
 - **Layout**: l'intestazione di ogni output conferma la richiesta, per esempio
   `MPI tasks: 2; tasks per node: 2` e `CPUs per task: 8; OpenMP threads per task: 8`
   per 2 × 8; per HPL $P \cdot Q$ coincide con il numero di task, per HPCG la griglia
@@ -409,7 +469,9 @@ I log completi da cui provengono tutti i numeri sono
 {download}`collect_20261109_115110.txt <../../../results/es05/collect_20261109_115110.txt>`
 (primo giro) e
 {download}`collect_20261109_121824.txt <../../../results/es05/collect_20261109_121824.txt>`
-(tutti i run su un nodo, con le ripetizioni).
+(tutti i run su un nodo, con le ripetizioni) e
+{download}`collect_20261116_091615.txt <../../../results/es05/collect_20261116_091615.txt>`
+(tutti i run, compresi quelli di scaling).
 
 ### 1. Baseline con i file del corso
 
@@ -444,6 +506,18 @@ Il lavoro utile cresce come $N^3$, mentre le parti che non sfruttano bene i core
 lentamente, come $N^2$: più grande è la matrice, più tempo si passa in `DGEMM`, che
 lavora vicino al picco. Per questo il confronto delle ripartizioni usa $N$ = 41280 e
 non il caso piccolo della baseline.
+
+**Perché non una matrice più grande.** Il guadagno si riduce a ogni raddoppio di $N$:
++16.7% da 12288 a 24576, poi +8.2% da 24576 a 41280, quando si è già all'84% del
+picco. Il costo invece cresce come $N^3$. Il run `R01` lo conferma: con 2 × 8 e
+$N$ = 82560 (50.8 GiB, quasi tutta la memoria del nodo) HPL dà **268.3 GFLOP/s**,
+solo il 3.1% in più della media a $N$ = 41280 (260.3), ma impiega 1398 s invece di
+180 e occupa il nodo per 29 minuti. Con 21 run a $N$ = 41280 per il confronto delle
+ripartizioni, usare $N$ = 82560 avrebbe richiesto circa 10 ore di nodo invece di
+1.4, per spostare tutti i risultati di pochi punti percentuali. `R01` resta il
+risultato a memoria piena usato nel confronto finale con il picco
+({numref}`tab-es05-final`). Un limite: la classifica delle ripartizioni non è stata
+ricontrollata a $N$ = 82560.
 
 ### 3. HPL: come dividere i 16 core
 
@@ -588,6 +662,202 @@ prodotto differenza × processi resta fra 167 e 228 s: è il comportamento di un
 eseguita da ogni processo sulla sua parte di matrice con un solo thread, come la
 generazione della matrice casuale e il controllo del residuo.
 
+### 7. HPL: strong scaling a $N$ = 41280
+
+**Idea.** Stessa matrice, sempre più core. Nel caso ideale il tempo si dimezza a
+ogni raddoppio, cioè lo speedup $S = T_1/T$ è uguale al numero di core e
+l'efficienza $E = S/\text{core}$ resta 1. In realtà la parte di comunicazione e di
+coordinamento non si divide fra i core, e pesa sempre di più man mano che il lavoro
+di ciascuno si riduce.
+
+:::{table} HPL strong scaling a $N$ = 41280. Speedup ed efficienza rispetto al run da 1 core; efficienza per nodo rispetto al run da 16 core; frazione del picco a 2.40 GHz per i core usati.
+:name: tab-es05-hpl-strong
+
+| Core | Nodi | Processi × thread | $P \times Q$ | Time (s) | GFLOP/s | Speedup | Efficienza | Efficienza per nodo | Frazione del picco |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | 1 × 1 | 1 × 1 | 2259.8 | 20.8 | 1.00 | 1.00 | — | 108.1% |
+| 2 | 1 | 1 × 2 | 1 × 1 | 1148.1 | 40.8 | 1.97 | 0.98 | — | 106.4% |
+| 4 | 1 | 1 × 4 | 1 × 1 | 648.5 | 72.3 | 3.48 | 0.87 | — | 94.2% |
+| 8 | 1 | 1 × 8 | 1 × 1 | 352.9 | 132.9 | 6.40 | 0.80 | — | 86.5% |
+| 16 | 1 | 2 × 8 | 1 × 2 | 179.9 | 260.7 | 12.56 | 0.79 | 1.00 | 84.9% |
+| 32 | 2 | 4 × 8 | 2 × 2 | 112.1 | 418.2 | 20.15 | 0.63 | 0.80 | 68.1% |
+| 64 | 4 | 8 × 8 | 2 × 4 | 68.2 | **687.9** | 33.15 | 0.52 | 0.66 | 56.0% |
+| 128 | 8 | 16 × 8 | 4 × 4 | 82.2 | 570.2 | 27.48 | 0.21 | 0.27 | 23.2% |
+:::
+
+```{figure} figures/es05-hpl-scaling.png
+:name: fig-es05-hpl-scaling
+:width: 100%
+
+HPL su nodi Sandy Bridge. A sinistra: strong scaling a $N$ = 41280, speedup rispetto
+a 1 core (assi logaritmici; tratteggio: speedup ideale). A destra: efficienza
+rispetto a un nodo per lo strong scaling e per lo studio memory-scaled.
+```
+
+Dentro un nodo lo speedup è quasi ideale fino a 2 core e arriva a 12.6 con 16 core.
+Il run da 1 core, però, va al **108%** del picco calcolato a 2.40 GHz: con un solo
+core attivo la CPU sale più in alto in turbo (almeno 2.6 GHz, perché
+$20.75 / 8 = 2.59$ GHz anche con un'efficienza del 100%; il massimo dichiarato è
+2.8 GHz). Il riferimento a 1 core è quindi "gonfiato" dal turbo, e l'efficienza 0.79
+a 16 core sottostima quella a frequenza costante. Per questo, da un nodo in su,
+conviene confrontare con il run da 16 core (**efficienza per nodo**), in cui tutti i
+core sono attivi come negli altri run.
+
+Fra i nodi l'efficienza scende a 0.80 e 0.66, e a 8 nodi crolla a 0.27: il tempo
+**risale** da 68 a 82 s. A 8 nodi ogni processo ha solo 1/16 della matrice
+($8N^2/16 = 0.8$ GiB), quindi il calcolo per processo si riduce, mentre a ogni passo
+il pannello va comunque inviato lungo le righe della griglia e lo scambio delle righe
+di pivot lungo le colonne. Il risultato migliore in valore assoluto è a 4 nodi,
+**688 GFLOP/s**.
+
+### 8. HPL: memory-scaled
+
+**Idea.** Se il problema cresce con i nodi, ogni nodo ha sempre la stessa quantità di
+dati (12.7 GiB) e il calcolo resta grande rispetto alla comunicazione. L'ideale è
+che ogni nodo renda come da solo: $R_k = k \cdot R_1$, cioè efficienza
+$E = R_k / (k R_1) = 1$. Il lavoro per nodo però cresce come $\sqrt{k}$
+({ref}`t-hpl-scaling`), quindi anche nel caso ideale il tempo cresce.
+
+:::{table} HPL memory-scaled, 2 processi × 8 thread per nodo, 12.7 GiB di matrice per nodo. Tempo ideale: $T_1\sqrt{k}$, cioè quello a efficienza 1.
+:name: tab-es05-hpl-memory
+
+| Nodi | $N$ | $P \times Q$ | Time (s) | Tempo ideale (s) | GFLOP/s | GFLOP/s per nodo | Efficienza | Frazione del picco |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 41280 | 1 × 2 | 179.9 | — | 260.7 | 260.7 | 1.00 | 84.9% |
+| 2 | 58368 | 2 × 2 | 292.4 | 254.4 | 453.3 | 226.7 | 0.87 | 73.8% |
+| 4 | 82560 | 2 × 4 | 422.9 | 359.7 | 887.2 | 221.8 | 0.85 | 72.2% |
+| 8 | 116736 | 4 × 4 | 927.1 | 508.7 | **1144.0** | 143.0 | 0.55 | 46.6% |
+:::
+
+Come previsto, tenere grande il problema aiuta: a 2 e 4 nodi l'efficienza è 0.87 e
+0.85, contro 0.80 e 0.66 a $N$ fisso. Il primo passo da 1 a 2 nodi costa il 13%,
+il secondo quasi nulla: il costo si paga soprattutto quando i dati iniziano a
+passare per la rete. A 8 nodi invece l'efficienza scende a **0.55** e il run dura
+927 s invece dei 509 previsti a efficienza costante.
+
+Il calo a 8 nodi compare in tutte e due le serie, quindi non dipende solo dalla
+dimensione del problema: a parità di memoria per nodo, il passaggio da 4 a 8 nodi
+costa da solo il 35% dell'efficienza. Rispetto ai run a 4 nodi cambiano due cose,
+la griglia (da 2 × 4 a 4 × 4, cioè più processi su ogni colonna per lo scambio
+delle righe di pivot) e i nodi coinvolti (tutti gli 8, `wnode[01-08]`). Con un solo
+run per punto non si possono separare le due cause né escludere un disturbo
+occasionale sulla rete: servirebbero una ripetizione di `M08` e `S128` e un run a
+8 nodi con griglia 2 × 8.
+
+### 9. HPCG: weak scaling
+
+**Idea.** Ogni processo ha sempre la stessa griglia locale (104³), quindi il
+problema totale cresce con i processi. Se ognuno lavorasse come da solo, il rate
+crescerebbe in proporzione: $R_p = p \cdot R_1$ ed efficienza $E = R_p/(p R_1) = 1$.
+HPCG però è limitato dalla memoria: finché i processi condividono la banda di un
+nodo, aggiungerne non può far crescere il rate oltre quanto la memoria riesce a
+fornire.
+
+:::{table} HPCG weak scaling, griglia locale 104³, 60 s richiesti. Efficienza rispetto a 1 processo e, da 16 processi in su, rispetto a un nodo pieno; banda stimata da HPCG e quota del tempo in `DDOT`.
+:name: tab-es05-hpcg-weak
+
+| Processi | Nodi | Griglia globale | GFLOP/s | Efficienza | Efficienza per nodo | Banda (GB/s) | `DDOT` (% del tempo) |
+|---|---|---|---|---|---|---|---|
+| 1 | 1 | 104 × 104 × 104 | 1.21 | 1.00 | — | 9.6 | 1% |
+| 2 | 1 | 208 × 104 × 104 | 2.47 | 1.02 | — | 19.5 | 1% |
+| 4 | 1 | 208 × 208 × 104 | 4.57 | 0.94 | — | 36.0 | 2% |
+| 8 | 1 | 208 × 208 × 208 | 7.46 | 0.77 | — | 58.7 | 1% |
+| 16 | 1 | 416 × 208 × 208 | 8.70 | 0.45 | 1.00 | 67.5 | 2% |
+| 32 | 2 | 416 × 416 × 208 | 16.53 | 0.43 | 0.95 | 128.1 | 3% |
+| 64 | 4 | 416 × 416 × 416 | 28.27 | 0.36 | 0.81 | 218.2 | 14% |
+| 128 | 8 | 832 × 416 × 416 | **44.63** | 0.29 | 0.64 | 343.3 | 27% |
+:::
+
+```{figure} figures/es05-hpcg-scaling.png
+:name: fig-es05-hpcg-scaling
+:width: 100%
+
+HPCG su nodi Sandy Bridge, 16 processi da 1 thread per nodo: efficienza
+$R_p / (p R_1)$ rispetto al run da 1 processo, per il weak scaling (griglia locale
+fissa) e per lo strong scaling (griglia globale fissa).
+```
+
+Il comportamento ha due fasi. **Dentro il nodo** l'efficienza resta vicina a 1 fino
+a 4 processi, poi scende: con 8 processi la banda stimata da HPCG è già 58.7 GB/s,
+con 16 solo 67.5 GB/s (+15%), e il rate cresce di conseguenza solo da 7.46 a 8.70
+(+17%). Raddoppiare i core non serve se la memoria è già quasi satura. **Fra i
+nodi** invece ogni nodo porta la sua banda di memoria: l'efficienza per nodo è 0.95 a
+2 nodi, poi 0.81 e 0.64, e la banda per nodo scende in proporzione (64.0, 54.6 e
+42.9 GB/s contro 67.5 su un nodo). Il calo segue la quota di tempo in `DDOT`, che
+sale dal 2-3% al 14% e al 27% (sezione 10).
+
+### 10. HPCG: strong scaling e il peso di `DDOT`
+
+**Idea.** Stessa griglia globale (256³) divisa fra sempre più processi. A ogni
+iterazione del gradiente coniugato servono prodotti scalari globali (`DDOT`): ogni
+processo calcola la sua parte, poi una `MPI_Allreduce` somma i contributi di
+tutti. È un punto di sincronizzazione: nessun processo può proseguire finché tutti
+non sono arrivati. Più piccola è la parte di ciascuno, più il tempo di queste
+somme pesa rispetto al calcolo.
+
+:::{table} HPCG strong scaling, griglia globale 256³, 60 s richiesti. Efficienza rispetto a 1 processo e, da 16 processi in su, rispetto a un nodo pieno; rate grezzo del multigrid; tempo in `DDOT` e tempo di `MPI_Allreduce` minimo e massimo fra i processi.
+:name: tab-es05-hpcg-strong
+
+| Processi | Nodi | Griglia locale | GFLOP/s | Efficienza | Efficienza per nodo | MG (GFLOP/s) | `DDOT` | `MPI_Allreduce` min–max (s) |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | 256 × 256 × 256 | 1.05 | 1.00 | — | 1.05 | 3.3 s (1%) | — |
+| 2 | 1 | 128 × 256 × 256 | 2.17 | 1.04 | — | 2.18 | 1.7 s (1%) | 0.1–0.5 |
+| 4 | 1 | 128 × 128 × 256 | 4.00 | 0.96 | — | 4.04 | 1.3 s (2%) | 0.4–1.2 |
+| 8 | 1 | 128 × 128 × 128 | 6.78 | 0.81 | — | 6.92 | 1.8 s (2%) | 0.6–1.3 |
+| 16 | 1 | 64 × 128 × 128 | 8.64 | 0.52 | 1.00 | 8.88 | 1.2 s (2%) | 0.3–0.8 |
+| 32 | 2 | 64 × 64 × 128 | **16.90** | 0.51 | 0.98 | 17.66 | 2.1 s (3%) | 0.6–1.9 |
+| 64 | 4 | 64 × 64 × 64 | 15.33 | 0.23 | 0.44 | 30.07 | 30.5 s (50%) | 9.3–30.4 |
+| 128 | 8 | 32 × 64 × 64 | 12.10 | 0.09 | 0.18 | 50.32 | 59.0 s (77%) | 36.2–59.2 |
+:::
+
+```{figure} figures/es05-hpcg-tempi.png
+:name: fig-es05-hpcg-tempi
+:width: 100%
+
+HPCG strong scaling (griglia globale 256³) da 1 a 8 nodi: come si divide il tempo
+del benchmark fra multigrid (MG), prodotto matrice-vettore (SpMV), prodotti scalari
+con somma globale (DDOT) e aggiornamenti di vettori (WAXPBY).
+```
+
+Fino a 2 nodi lo strong scaling di HPCG è quasi perfetto fra i nodi (efficienza per
+nodo 0.98) e dà il rate più alto della serie, 16.9 GFLOP/s. Poi il rate **scende**:
+15.3 a 4 nodi e 12.1 a 8. I kernel di calcolo continuano a scalare (il multigrid
+passa da 17.7 a 30.1 e 50.3 GFLOP/s), ma `DDOT` passa da 2 s a 30 e 59 s, cioè dal
+3% al 50% e al 77% del tempo. I dati sommati in ogni `MPI_Allreduce` sono pochi
+numeri, quindi il problema non è la quantità di dati. Anche il processo che aspetta
+meno passa 9.3 s (4 nodi) e 36.2 s (8 nodi) nella riduzione, contro meno di 1 s su
+un nodo: ogni somma globale fra nodi costa molto più che dentro un nodo, e i
+processi più lenti fanno aspettare tutti gli altri. Il log non permette di separare
+la latenza della rete dall'attesa dei processi in ritardo.
+
+L'efficienza leggermente sopra 1 con 2 processi (1.04) viene da un singolo run e dal
+confronto con un run da 1 processo su `wnode05`, il nodo che già nel confronto HPL
+era circa il 2% più lento: rientra nella variabilità fra nodi e non è stata
+indagata oltre.
+
+### 11. HPL, HPCG e picco teorico su più nodi
+
+**Idea.** Il punto 4 della consegna chiede quale benchmark si avvicina di più al
+picco. Su un nodo la risposta era HPL (85%) contro HPCG (2.8%). Su più nodi si
+aggiunge la rete, che pesa in modo diverso sui due benchmark.
+
+:::{table} Migliori risultati su 1, 2, 4 e 8 nodi rispetto al picco teorico, 307.1 GFLOP/s per nodo a 2.40 GHz.
+:name: tab-es05-final
+
+| Nodi | Picco (GFLOP/s) | HPL migliore (run) | HPL / picco | HPCG migliore (run) | HPCG / picco | HPL / HPCG |
+|---|---|---|---|---|---|---|
+| 1 | 307.1 | 268.3 (`R01`, $N$ = 82560) | **87.4%** | 8.70 (16 × 1) | **2.83%** | 31× |
+| 2 | 614.2 | 453.3 (`M02`) | 73.8% | 16.90 (strong) | 2.75% | 27× |
+| 4 | 1228.4 | 887.2 (`M04`) | 72.2% | 28.27 (weak) | 2.30% | 31× |
+| 8 | 2456.8 | 1144.0 (`M08`) | **46.6%** | 44.63 (weak) | **1.82%** | 26× |
+:::
+
+HPL resta sempre circa 30 volte più vicino al picco di HPCG. Il miglior risultato
+su un nodo è `R01` a memoria piena, all'**87.4%** del picco. Su 8 nodi HPL scende al
+47% e HPCG all'1.8%: entrambi perdono, ma per motivi diversi. HPL perde nel passaggio
+a 8 nodi (sezione 8), mentre HPCG perde già dentro il nodo, per la banda di memoria,
+e poi fra i nodi, per le somme globali.
+
 ## Commenti
 
 1. **Come dividere i 16 core: HPL.** Tutte le ripartizioni che non sbilanciano la
@@ -628,14 +898,44 @@ generazione della matrice casuale e il controllo del residuo.
    carichi opposti: HPL fa decine di operazioni per ogni dato letto, HPCG circa 0.13
    operazioni per byte trasferito (8.70 GFLOP/s su 67.5 GB/s di traffico stimato da
    HPCG stesso), quindi è la memoria, non l'unità di calcolo, a fissarne il limite.
+6. **Strong scaling: conviene fermarsi prima.** Per HPL a $N$ = 41280 il tempo
+   minimo è a 4 nodi (68 s), per HPCG a 256³ il rate massimo è a 2 nodi: oltre, i
+   nodi in più fanno andare **più piano**. In entrambi i casi la causa è che la parte
+   di ciascun processo diventa piccola e il costo di comunicare e sincronizzarsi non
+   si riduce. Un problema di questa dimensione non giustifica 8 nodi.
+7. **Crescere con il problema funziona meglio, ma non all'infinito.** Tenendo
+   costante la memoria per nodo, HPL resta a 0.85 di efficienza fino a 4 nodi e
+   HPCG weak a 0.81: è il modo in cui un cluster viene usato davvero, cioè per
+   problemi più grandi, non per lo stesso problema più in fretta. A 8 nodi però
+   HPL perde molto più che fra 2 e 4 nodi (memory-scaled da 0.85 a 0.55); con un run
+   per punto la causa resta da verificare (sezione 8).
+8. **HPCG: due limiti diversi.** Dentro un nodo il limite è la banda di memoria (da 8
+   a 16 processi la banda cresce solo del 15%); fra i nodi sono le somme globali di
+   `DDOT`, che sincronizzano tutti i processi a ogni iterazione e arrivano al 77% del
+   tempo nello strong scaling a 8 nodi. Per HPL, che comunica soprattutto blocchi
+   grandi e calcola molto per ogni dato ricevuto, la rete pesa meno: a 4 nodi
+   l'efficienza memory-scaled è 0.85.
+9. **Riferimento a 1 core e turbo.** Il run HPL da 1 core supera il picco a
+   2.40 GHz (108%) perché con pochi core attivi la frequenza sale. Le efficienze
+   dentro un nodo misurate rispetto a 1 core includono quindi anche la perdita di
+   frequenza, non solo quella di parallelismo; la frequenza è stata misurata solo a
+   16 core, quindi i due effetti non si possono separare.
 
 ## Checkpoint
 
-- **Tutti i run validi**: 24 run HPL `PASSED` (residuo massimo $5.3 \times 10^{-3}$
-  contro soglia 16) e 6 run HPCG `VALID`, tutti `COMPLETED 0:0`.
+- **Tutti i run validi**: 36 run HPL `PASSED` (residuo massimo $5.3 \times 10^{-3}$
+  contro soglia 16) e 21 run HPCG `VALID`, tutti `COMPLETED 0:0`.
 - **HPL su un nodo**: miglior ripartizione **2 × 8** (un processo per socket),
   $260.3 \pm 3.1$ GFLOP/s su 3 run; solo MPI −3.5%; griglia 1 × 16 −8.7%.
 - **HPCG su un nodo**: miglior ripartizione **16 × 1** (8.70 GFLOP/s); con 1 × 16 il
   rate scende dell'85% perché il multigrid non usa i thread.
 - **Picco**: frequenza misurata 2.40 GHz, $R_{\text{peak}}$ = 307 GFLOP/s per nodo;
-  HPL al 84.8%, HPCG al 2.83%.
+  HPL al 84.8%, HPCG al 2.83%; a memoria piena ($N$ = 82560) HPL arriva all'87.4%.
+- **HPL strong** ($N$ = 41280): efficienza per nodo 0.80, 0.66, 0.27 a 2, 4, 8 nodi;
+  massimo assoluto a 4 nodi (688 GFLOP/s, 68 s).
+- **HPL memory-scaled**: efficienza 0.87, 0.85, 0.55 a 2, 4, 8 nodi; 1144 GFLOP/s a
+  8 nodi ($N$ = 116736), il 46.6% del picco.
+- **HPCG weak**: 44.6 GFLOP/s a 128 processi; efficienza per nodo 0.95, 0.81, 0.64.
+- **HPCG strong** (256³): massimo a 2 nodi (16.9 GFLOP/s); a 8 nodi `DDOT` è il 77%
+  del tempo e il rate scende a 12.1.
+- **Limite**: un run per punto di scaling; il calo a 8 nodi non è stato ripetuto.
