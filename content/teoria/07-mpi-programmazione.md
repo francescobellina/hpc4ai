@@ -726,6 +726,7 @@ di 1 double, con l'inizio di un blocco a 6 double dal precedente. A partire da
   spostamenti dei campi si ottengono con `MPI_Get_address`, perché il compilatore può
   inserire byte di allineamento.
 
+(t7-halo)=
 ### Celle fantasma (halo)
 
 Nella decomposizione di un dominio ogni rank possiede un blocco e alloca celle in più

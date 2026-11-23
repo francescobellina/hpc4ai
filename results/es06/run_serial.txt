@@ -1,0 +1,6 @@
+Image: 17 x 19; iterations: 44; max change: 9.37653652833e-07
+Stop: tolerance; iteration seconds: 0.000122470
+Image: 2048 x 2048; iterations: 53; max change: 9.41714581926e-07
+Stop: tolerance; iteration seconds: 1.836917258
+Image: 2048 x 2048; iterations: 16; max change: 6.12660595811e-07
+Stop: tolerance; iteration seconds: 0.554819942

@@ -18,6 +18,7 @@ riferimento** rimanda alle sezioni dei capitoli di teoria che servono.
 | [3 — Tiny stories, many threads](es03-tiny-stories.md) | profilo, traffico di memoria per token, OpenMP su `matmul` e sulle teste, scaling e banda effettiva | cap. 1, 2, 3, 4, 5 |
 | [4 — Profiling e ottimizzazione della data preparation](es04-profiling-data-preparation.md) | profilo con `perf`, hotspot memory-bound, scambio dei cicli, Amdahl | cap. 1, 2, 3 |
 | [5 — Benchmarking e scaling con HPL e HPCG](es05-hpl-hpcg.md) | ripartizione MPI × thread, picco teorico, scaling su più nodi | cap. 2, 3, 4, 6 |
+| [6 — Image denoising in parallel](es06-image-denoising.md) | modello variazionale, Jacobi, strisce MPI con halo e riduzione, strong scaling (in corso) | cap. 2, 4, 7 |
 
 Ogni esercizio segue lo schema fisso: **consegna** (evidenziata), **teoria di
 riferimento**, **parametri**, **implementazione**, **procedura di validazione**,

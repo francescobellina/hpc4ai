@@ -232,9 +232,31 @@ def log2_axis(ax, values):
 
 
 def fig_hpl_scaling(strong, memory, one, path):
-    fig, (a, b) = plt.subplots(1, 2, figsize=(7.6, 3.5), facecolor=SURFACE)
+    """Strong scaling di HPL: tempo, speedup ed efficienza contro i core; efficienza per nodo di strong e memory-scaled."""
+    fig, ((t, a), (e, b)) = plt.subplots(2, 2, figsize=(7.6, 6.6), facecolor=SURFACE)
     cores = [r["tasks"] * r["threads"] for r in strong]
-    speed = [strong[0]["time"] / r["time"] for r in strong]
+    times = [r["time"] for r in strong]
+    speed = [times[0] / x for x in times]
+
+    style(t)
+    t.plot(cores, [times[0] / c for c in cores], color=INK2, linewidth=1, linestyle="--", label="ideale  T₁ / core")
+    t.plot(cores, times, color=BLUE, linewidth=2, marker="o", markersize=6,
+           markeredgecolor=SURFACE, markeredgewidth=1.5, label="misurato")
+    t.set_yscale("log")
+    log2_axis(t, cores)
+    ts = [20, 50, 100, 200, 500, 1000, 2000]
+    t.set_yticks(ts, [str(v) for v in ts])
+    t.minorticks_off()
+    t.set_xlim(0.8, 200)
+    t.axvline(CORES, color=GRID, linewidth=1.5, zorder=1)
+    t.text(CORES * 1.08, 25, "1 nodo", fontsize=8, color=INK2)
+    for c, x in zip(cores[-2:], times[-2:]):
+        t.annotate(f"{x:.0f} s", (c, x), xytext=(0, 9), textcoords="offset points", ha="center", fontsize=8, color=INK)
+    t.set_xlabel("core (N = 41280 fisso)", color=INK2, fontsize=9)
+    t.set_ylabel("tempo di calcolo HPL (s)", color=INK2, fontsize=9)
+    t.set_title("tempo di esecuzione", fontsize=9, color=INK)
+    t.legend(loc="upper right", fontsize=8, frameon=False, labelcolor=INK2)
+
     style(a)
     a.plot(cores, cores, color=INK2, linewidth=1, linestyle="--", label="ideale")
     a.plot(cores, speed, color=BLUE, linewidth=2, marker="o", markersize=6,
@@ -242,14 +264,31 @@ def fig_hpl_scaling(strong, memory, one, path):
     a.set_yscale("log", base=2)
     log2_axis(a, cores)
     a.set_yticks(cores, [str(v) for v in cores])
+    a.set_xlim(0.8, 200)
     a.axvline(CORES, color=GRID, linewidth=1.5, zorder=1)
     a.text(CORES * 1.08, 1.3, "1 nodo", fontsize=8, color=INK2)
     for c, s in zip(cores[-3:], speed[-3:]):
         a.annotate(f"{s:.1f}", (c, s), xytext=(0, -13), textcoords="offset points", ha="center", fontsize=8, color=INK)
     a.set_xlabel("core (N = 41280 fisso)", color=INK2, fontsize=9)
-    a.set_title("strong scaling: stessa matrice, più core", fontsize=9, color=INK)
+    a.set_title("speedup rispetto a 1 core", fontsize=9, color=INK)
     a.set_ylabel("speedup  T₁ / T", color=INK2, fontsize=9)
     a.legend(loc="upper left", fontsize=8, frameon=False, labelcolor=INK2)
+
+    style(e)
+    eff = [s / c for s, c in zip(speed, cores)]
+    e.axhline(1, color=INK2, linewidth=1, linestyle="--", label="ideale")
+    e.plot(cores, eff, color=BLUE, linewidth=2, marker="o", markersize=6,
+           markeredgecolor=SURFACE, markeredgewidth=1.5, label="misurato")
+    log2_axis(e, cores)
+    e.set_ylim(0, 1.12)
+    e.set_xlim(0.8, 200)
+    e.axvline(CORES, color=GRID, linewidth=1.5, zorder=1)
+    e.text(CORES * 1.08, 0.06, "1 nodo", fontsize=8, color=INK2)
+    e.annotate(f"{eff[-1]:.2f}", (cores[-1], eff[-1]), xytext=(8, -3), textcoords="offset points", fontsize=8, color=INK)
+    e.set_xlabel("core (N = 41280 fisso)", color=INK2, fontsize=9)
+    e.set_ylabel("efficienza  T₁ / (core · T)", color=INK2, fontsize=9)
+    e.set_title("efficienza rispetto a 1 core (in turbo)", fontsize=9, color=INK)
+    e.legend(loc="lower left", fontsize=8, frameon=False, labelcolor=INK2)
 
     style(b)
     nodes = [1, 2, 4, 8]
@@ -390,22 +429,101 @@ def fig_hpl_memory(memory, path, peak):
 
 
 def fig_hpcg_scaling(weak, strong, path):
-    fig, ax = plt.subplots(figsize=(7.2, 3.6), facecolor=SURFACE)
-    style(ax)
-    for runs, color, name in ((weak, ORANGE, "weak (griglia locale 104³)"), (strong, BLUE, "strong (griglia globale 256³)")):
+    """Efficienza di weak e strong: rispetto a 1 processo e rispetto a 1 nodo pieno (16 processi)."""
+    series = ((weak, ORANGE, "weak (griglia locale 104³)"), (strong, BLUE, "strong (griglia globale 256³)"))
+    fig, (a, b) = plt.subplots(1, 2, figsize=(7.6, 3.5), facecolor=SURFACE)
+    style(a)
+    for runs, color, name in series:
         ys = [r["rate"] / runs[0]["rate"] / r["procs"] for r in runs]
         ps = [r["procs"] for r in runs]
-        ax.plot(ps, ys, color=color, linewidth=2, marker="o", markersize=6,
-                markeredgecolor=SURFACE, markeredgewidth=1.5, label=name)
-        ax.annotate(f"{ys[-1]:.2f}", (ps[-1], ys[-1]), xytext=(8, -3), textcoords="offset points", fontsize=8, color=INK)
-    log2_axis(ax, [r["procs"] for r in strong])
+        a.plot(ps, ys, color=color, linewidth=2, marker="o", markersize=6,
+               markeredgecolor=SURFACE, markeredgewidth=1.5, label=name)
+        a.annotate(f"{ys[-1]:.2f}", (ps[-1], ys[-1]), xytext=(8, -3), textcoords="offset points", fontsize=8, color=INK)
+    log2_axis(a, [r["procs"] for r in strong])
+    a.set_xlim(0.8, 200)
+    a.axvline(CORES, color=GRID, linewidth=1.5, zorder=1)
+    a.text(CORES * 1.08, 1.02, "1 nodo", fontsize=8, color=INK2)
+    a.set_ylim(0, 1.12)
+    a.set_xlabel("processi MPI (1 thread ciascuno, 16 per nodo)", color=INK2, fontsize=9)
+    a.set_ylabel("efficienza  R / (p · R₁)", color=INK2, fontsize=9)
+    a.set_title("rispetto a 1 processo", fontsize=9, color=INK)
+    a.legend(loc="lower left", fontsize=8, frameon=False, labelcolor=INK2)
+
+    style(b)
+    nodes = [1, 2, 4, 8]
+    for runs, color, name in series:
+        r16 = next(r["rate"] for r in runs if r["procs"] == CORES)
+        ys = [r["rate"] / (r16 * r["procs"] / CORES) for r in runs if r["procs"] >= CORES]
+        b.plot(nodes, ys, color=color, linewidth=2, marker="o", markersize=6,
+               markeredgecolor=SURFACE, markeredgewidth=1.5, label=name)
+        b.annotate(f"{ys[-1]:.2f}", (nodes[-1], ys[-1]), xytext=(7, -3), textcoords="offset points", fontsize=8, color=INK)
+    log2_axis(b, nodes)
+    b.set_ylim(0, 1.12)
+    b.set_xlim(0.85, 10.5)
+    b.set_xlabel("nodi (16 processi × 1 thread per nodo)", color=INK2, fontsize=9)
+    b.set_ylabel("efficienza  R / (k · R₁₆)", color=INK2, fontsize=9)
+    b.set_title("rispetto a 1 nodo pieno", fontsize=9, color=INK)
+    b.legend(loc="lower left", fontsize=8, frameon=False, labelcolor=INK2)
+    fig.tight_layout()
+    fig.savefig(path, dpi=200, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def rate_axes(ax, ps):
+    """GFLOP/s contro processi, assi log2; da 16 processi in su il numero di nodi sotto."""
+    ax.set_yscale("log", base=2)
+    log2_axis(ax, ps)
+    ax.set_xticks(ps, [str(p) if p < CORES else f"{p}\n{p // CORES} nod{'o' if p == CORES else 'i'}" for p in ps])
+    ys = [1, 2, 4, 8, 16, 32, 64, 128]
+    ax.set_yticks(ys, [str(v) for v in ys])
+    ax.minorticks_off()
     ax.set_xlim(0.8, 200)
-    ax.axvline(CORES, color=GRID, linewidth=1.5, zorder=1)
-    ax.text(CORES * 1.08, 1.02, "1 nodo", fontsize=8, color=INK2)
-    ax.set_ylim(0, 1.12)
-    ax.set_xlabel("processi MPI (1 thread ciascuno, 16 per nodo; 60 s richiesti)", color=INK2, fontsize=9)
-    ax.set_ylabel("efficienza  R / (p · R₁)", color=INK2, fontsize=9)
-    ax.legend(loc="lower left", fontsize=8, frameon=False, labelcolor=INK2)
+    ax.set_ylabel("GFLOP/s", color=INK2, fontsize=9)
+
+
+def fig_hpcg_weak(weak, path):
+    """Weak scaling di HPCG: rate validato contro p · R₁ e contro k · R₁₆ (k nodi pieni)."""
+    ps, rate = [r["procs"] for r in weak], [r["rate"] for r in weak]
+    r16 = next(r["rate"] for r in weak if r["procs"] == CORES)
+    nodes = [p for p in ps if p >= CORES]
+    fig, ax = plt.subplots(figsize=(7.2, 3.6), facecolor=SURFACE)
+    style(ax)
+    ax.plot(ps, [rate[0] * p for p in ps], color=INK2, linewidth=1, linestyle="--", label="ideale  p · R₁")
+    ax.plot(nodes, [r16 * p / CORES for p in nodes], color=INK2, linewidth=1, linestyle=":",
+            label="ideale da 1 nodo  k · R₁₆")
+    ax.plot(ps, rate, color=ORANGE, linewidth=2, marker="o", markersize=6,
+            markeredgecolor=SURFACE, markeredgewidth=1.5, label="HPCG, rate validato")
+    rate_axes(ax, ps)
+    i16 = ps.index(CORES)
+    ax.annotate(f"{rate[i16]:.1f}", (ps[i16], rate[i16]), xytext=(0, -14), textcoords="offset points",
+                ha="center", fontsize=8, color=INK)
+    ax.annotate(f"{rate[-1]:.1f}", (ps[-1], rate[-1]), xytext=(8, -3), textcoords="offset points", fontsize=8, color=INK)
+    ax.set_xlabel("processi MPI (1 thread ciascuno, 16 per nodo; griglia locale 104³)", color=INK2, fontsize=9)
+    ax.legend(loc="upper left", fontsize=8, frameon=False, labelcolor=INK2)
+    fig.tight_layout()
+    fig.savefig(path, dpi=200, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def fig_hpcg_strong(strong, path):
+    """Strong scaling di HPCG: rate validato e rate del multigrid contro l'ideale p · R₁."""
+    ps = [r["procs"] for r in strong]
+    rate, mg = [r["rate"] for r in strong], [r["mg"] for r in strong]
+    fig, ax = plt.subplots(figsize=(7.2, 3.6), facecolor=SURFACE)
+    style(ax)
+    ax.plot(ps, [rate[0] * p for p in ps], color=INK2, linewidth=1, linestyle="--", label="ideale  p · R₁")
+    ax.plot(ps, mg, color=AQUA, linewidth=2, marker="s", markersize=6,
+            markeredgecolor=SURFACE, markeredgewidth=1.5, label="solo multigrid (MG)")
+    ax.plot(ps, rate, color=BLUE, linewidth=2, marker="o", markersize=6,
+            markeredgecolor=SURFACE, markeredgewidth=1.5, label="HPCG, rate validato")
+    rate_axes(ax, ps)
+    best = max(range(len(ps)), key=lambda i: rate[i])
+    ax.annotate(f"{rate[best]:.1f}", (ps[best], rate[best]), xytext=(0, 9), textcoords="offset points",
+                ha="center", fontsize=8, color=INK)
+    ax.annotate(f"{rate[-1]:.1f}", (ps[-1], rate[-1]), xytext=(8, -3), textcoords="offset points", fontsize=8, color=INK)
+    ax.annotate(f"{mg[-1]:.1f}", (ps[-1], mg[-1]), xytext=(8, -3), textcoords="offset points", fontsize=8, color=INK)
+    ax.set_xlabel("processi MPI (1 thread ciascuno, 16 per nodo; griglia globale 256³)", color=INK2, fontsize=9)
+    ax.legend(loc="upper left", fontsize=8, frameon=False, labelcolor=INK2)
     fig.tight_layout()
     fig.savefig(path, dpi=200, facecolor=SURFACE)
     plt.close(fig)
@@ -432,6 +550,80 @@ def fig_hpcg_times(strong, path):
     ax.set_xlim(0, 100)
     ax.set_xlabel("% del tempo del benchmark  (strong scaling, griglia globale 256³)", color=INK2, fontsize=9)
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.28), ncol=4, fontsize=8, frameon=False, labelcolor=INK2)
+    fig.tight_layout()
+    fig.savefig(path, dpi=200, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def per_node(hpl_strong, memory, one, weak, strong):
+    """Speedup S_k = R_k / R_1 rispetto a un nodo pieno per i quattro studi, ed efficienza E_k = S_k / k."""
+    hpl_full = [r for r in hpl_strong if r["tasks"] * r["threads"] >= CORES]
+    weak_full = [r for r in weak if r["procs"] >= CORES]
+    strong_full = [r for r in strong if r["procs"] >= CORES]
+    studies = {
+        "HPL strong": [one["time"] / r["time"] for r in hpl_full],
+        "HPL memory-scaled": [r["gflops"] / one["gflops"] for r in memory],
+        "HPCG weak": [r["rate"] / weak_full[0]["rate"] for r in weak_full],
+        "HPCG strong": [r["rate"] / strong_full[0]["rate"] for r in strong_full],
+    }
+    print("\nSpeedup ed efficienza rispetto a un nodo pieno (S = R_k/R_1, E = S/k), formato S (E)")
+    print("| Nodi | " + " | ".join(studies) + " |")
+    print("|---|" + "---|" * len(studies))
+    for i, k in enumerate((1, 2, 4, 8)):
+        print(f"| {k} | " + " | ".join(f"{s[i]:.2f} ({s[i] / k:.2f})" for s in studies.values()) + " |")
+    return studies
+
+
+def fig_scaling_summary(studies, path):
+    """In alto lo speedup di HPL e di HPCG (problema che cresce contro problema fisso), sotto l'efficienza dei quattro studi."""
+    nodes = [1, 2, 4, 8]
+    look = {"HPL strong": (BLUE, "-", "o"), "HPL memory-scaled": (ORANGE, "-", "o"),
+            "HPCG weak": (ORANGE, (0, (4, 2)), "s"), "HPCG strong": (BLUE, (0, (4, 2)), "s")}
+    detail = {"HPL strong": "N = 41280", "HPL memory-scaled": "N ∝ √k",
+              "HPCG weak": "104³ per processo", "HPCG strong": "256³"}
+    fig = plt.figure(figsize=(7.6, 6.6), facecolor=SURFACE)
+    grid = fig.add_gridspec(2, 2)
+    for col, (bench, grow) in enumerate((("HPL", "memory-scaled"), ("HPCG", "weak"))):
+        ax = fig.add_subplot(grid[0, col])
+        style(ax)
+        ax.plot(nodes, nodes, color=INK2, linewidth=1, linestyle="--", label="ideale  S = k")
+        for name in (f"{bench} {grow}", f"{bench} strong"):
+            color, ls, marker = look[name]
+            ax.plot(nodes, studies[name], color=color, linestyle=ls, linewidth=2, marker=marker, markersize=6,
+                    markeredgecolor=SURFACE, markeredgewidth=1.5, label=f"{name.split()[1]} ({detail[name]})")
+            ax.annotate(f"{studies[name][-1]:.2f}", (nodes[-1], studies[name][-1]), xytext=(7, -3),
+                        textcoords="offset points", fontsize=8, color=INK)
+        ax.set_xscale("log", base=2)
+        ax.set_yscale("log", base=2)
+        ax.set_xticks(nodes, [str(k) for k in nodes])
+        ax.set_yticks(nodes, [str(k) for k in nodes])
+        ax.minorticks_off()
+        ax.set_xlim(0.85, 11)
+        ax.set_ylim(0.85, 9.5)
+        ax.set_title(f"{bench}: speedup rispetto a 1 nodo", fontsize=9, color=INK)
+        ax.set_xlabel("nodi", color=INK2, fontsize=9)
+        ax.set_ylabel("speedup  S = Rₖ / R₁", color=INK2, fontsize=9)
+        ax.legend(loc="upper left", fontsize=8, frameon=False, labelcolor=INK2)
+
+    c = fig.add_subplot(grid[1, :])
+    style(c)
+    c.axhline(1, color=INK2, linewidth=1, linestyle="--", label="ideale  E = 1")
+    for name, s in studies.items():
+        color, ls, marker = look[name]
+        e = [x / k for x, k in zip(s, nodes)]
+        c.plot(nodes, e, color=color, linestyle=ls, linewidth=2, marker=marker, markersize=6,
+               markeredgecolor=SURFACE, markeredgewidth=1.5, label=f"{name} ({detail[name]})")
+        c.annotate(f"{name}  {e[-1]:.2f}", (nodes[-1], e[-1]), xytext=(8, -3), textcoords="offset points",
+                   fontsize=8, color=INK)
+    c.set_xscale("log", base=2)
+    c.set_xticks(nodes, [str(k) for k in nodes])
+    c.minorticks_off()
+    c.set_xlim(0.85, 22)
+    c.set_ylim(0, 1.1)
+    c.set_title("efficienza rispetto a 1 nodo: arancione problema che cresce, blu problema fisso", fontsize=9, color=INK)
+    c.set_xlabel("nodi (HPL: 2 processi × 8 thread per nodo; HPCG: 16 processi × 1 thread)", color=INK2, fontsize=9)
+    c.set_ylabel("efficienza  E = S / k", color=INK2, fontsize=9)
+    c.legend(loc="lower left", ncol=2, fontsize=8, frameon=False, labelcolor=INK2)
     fig.tight_layout()
     fig.savefig(path, dpi=200, facecolor=SURFACE)
     plt.close(fig)
@@ -484,16 +676,22 @@ def main():
     names = ["es05-hpl-layout.png", "es05-hpcg-layout.png"]
 
     # Gli studi di scaling ci sono solo nei log raccolti dopo hpl-scaling e hpcg-scaling.
+    hpl_runs = hpcg_runs = None
     if f and any(r["name"].startswith("M") for r in hpl):
-        strong, memory, one = hpl_scaling(hpl, CORES * f * FLOP_CYCLE)
+        strong, memory, one = hpl_runs = hpl_scaling(hpl, CORES * f * FLOP_CYCLE)
         fig_hpl_scaling(strong, memory, one, FIG / "es05-hpl-scaling.png")
         fig_hpl_memory(memory, FIG / "es05-hpl-memory.png", CORES * f * FLOP_CYCLE)
         names += ["es05-hpl-scaling.png", "es05-hpl-memory.png"]
     if any(r["name"].startswith("W") for r in hpcg):
-        weak, strong = hpcg_scaling(hpcg)
+        weak, strong = hpcg_runs = hpcg_scaling(hpcg)
+        fig_hpcg_weak(weak, FIG / "es05-hpcg-weak.png")
         fig_hpcg_scaling(weak, strong, FIG / "es05-hpcg-scaling.png")
+        fig_hpcg_strong(strong, FIG / "es05-hpcg-strong.png")
         fig_hpcg_times(strong, FIG / "es05-hpcg-tempi.png")
-        names += ["es05-hpcg-scaling.png", "es05-hpcg-tempi.png"]
+        names += ["es05-hpcg-weak.png", "es05-hpcg-scaling.png", "es05-hpcg-strong.png", "es05-hpcg-tempi.png"]
+    if hpl_runs and hpcg_runs:
+        fig_scaling_summary(per_node(*hpl_runs, *hpcg_runs), FIG / "es05-scaling-confronto.png")
+        names.append("es05-scaling-confronto.png")
     print("\nFigure in content/esercizi/figures/: " + ", ".join(names))
 
 

@@ -1,0 +1,26 @@
+t2x2           P=2   lambda=1    steps=200  tol=1e-6   | seriale: 35 tolerance           | MPI: 35 tolerance           uguali | valori: 4; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 2; rows per rank: 1-1
+small8         P=8   lambda=1    steps=200  tol=1e-6   | seriale: 42 tolerance           | MPI: 42 tolerance           uguali | valori: 152; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 8; rows per rank: 1-1
+small          P=2   lambda=1    steps=200  tol=1e-6   | seriale: 44 tolerance           | MPI: 44 tolerance           uguali | valori: 323; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 2; rows per rank: 8-9
+small          P=3   lambda=1    steps=200  tol=1e-6   | seriale: 44 tolerance           | MPI: 44 tolerance           uguali | valori: 323; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 3; rows per rank: 5-6
+small          P=4   lambda=1    steps=200  tol=1e-6   | seriale: 44 tolerance           | MPI: 44 tolerance           uguali | valori: 323; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 4; rows per rank: 4-5
+small          P=16  lambda=1    steps=200  tol=1e-6   | seriale: 44 tolerance           | MPI: 44 tolerance           uguali | valori: 323; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 16; rows per rank: 1-2
+small-fisso    P=3   lambda=1    steps=200  tol=0      | seriale: 200 iteration limit    | MPI: 200 iteration limit    uguali | valori: 323; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 3; rows per rank: 5-6
+small-fisso    P=16  lambda=1    steps=200  tol=0      | seriale: 200 iteration limit    | MPI: 200 iteration limit    uguali | valori: 323; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 16; rows per rank: 1-2
+medium         P=2   lambda=1    steps=200  tol=1e-6   | seriale: 53 tolerance           | MPI: 53 tolerance           uguali | valori: 4194304; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 2; rows per rank: 1024-1024
+medium         P=4   lambda=1    steps=200  tol=1e-6   | seriale: 53 tolerance           | MPI: 53 tolerance           uguali | valori: 4194304; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 4; rows per rank: 512-512
+medium         P=8   lambda=1    steps=200  tol=1e-6   | seriale: 53 tolerance           | MPI: 53 tolerance           uguali | valori: 4194304; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 8; rows per rank: 256-256
+medium         P=16  lambda=1    steps=200  tol=1e-6   | seriale: 53 tolerance           | MPI: 53 tolerance           uguali | valori: 4194304; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 16; rows per rank: 128-128
+medium-l02     P=16  lambda=0.2  steps=200  tol=1e-6   | seriale: 16 tolerance           | MPI: 16 tolerance           uguali | valori: 4194304; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 16; rows per rank: 128-128

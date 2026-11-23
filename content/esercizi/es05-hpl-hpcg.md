@@ -22,7 +22,13 @@ benchmark raggiunge la frazione più alta del picco, e perché?
    per HPCG, weak scaling (griglia locale fissa) e strong scaling (griglia globale
    fissa), confrontando i rate validati $R_p$ con
    $S_p^{(R)} = R_p/R_1$ ed $E_p^{(R)} = S_p^{(R)}/p$ e la stessa durata richiesta in
-   `hpcg.dat`.
+   `hpcg.dat`. **Interpretazione**: per HPL, grafici di tempo, speedup ed efficienza
+   contro core o nodi; per HPCG, grafici del rate validato e dello speedup e
+   dell'efficienza ricavati da esso, con baseline il run completo su un nodo
+   ($E_k = R_k/(k R_1)$ con $k$ nodi); confronto di entrambi con il picco, senza
+   aspettarsi per HPCG una frazione simile. Dai run memory-scaled non si ricava uno
+   speedup di strong scaling; 60 s bastano per i controlli di correttezza, mentre un
+   run ufficiale di HPCG ne richiede almeno 1800.
 4. **Picco teorico**: stimare $R_{\text{peak}} = N_{\text{core}}\, f\,
    (\text{flop per ciclo})$ dichiarando precisione, numero di core, frequenza,
    larghezza vettoriale e operazioni per ciclo.
@@ -309,8 +315,11 @@ In `hpcg.dat` la riga 3 è la griglia **locale** di ogni processo e la riga 4 la
 durata richiesta (60 s). La griglia **globale** è il prodotto della griglia locale
 per la griglia dei processi $n_{px} \times n_{py} \times n_{pz}$. Per confrontare le
 ripartizioni sullo **stesso problema** (416 × 208 × 208) la griglia locale cresce
-quando i processi diminuiscono, e la griglia dei processi è fissata con le opzioni
-`--npx`, `--npy`, `--npz` di `xhpcg`; per esempio, per 2 × 8:
+quando i processi diminuiscono. La griglia dei processi la sceglie HPCG: con $2^k$
+processi divide l'esponente $k$ in tre parti il più possibile uguali, dando i fattori
+in più prima a $x$ e poi a $y$ (128 = $2^7$ → 8 × 4 × 4). `es05.sh` cambia la riga 3
+e aggiunge a `srun` la stessa griglia con le opzioni `--npx`, `--npy`, `--npz`; per
+esempio, per 2 × 8:
 
 ```diff
 -104 104 104
@@ -319,6 +328,14 @@ quando i processi diminuiscono, e la griglia dei processi è fissata con le opzi
 -srun --cpu-bind=verbose --cpus-per-task="$SLURM_CPUS_PER_TASK" xhpcg
 +srun --cpu-bind=verbose --cpus-per-task="$SLURM_CPUS_PER_TASK" xhpcg --npx=2 --npy=1 --npz=1
 ```
+
+Queste opzioni in realtà non hanno effetto. Nel sorgente ufficiale di HPCG 3.1
+(`src/init.cpp`), se la griglia locale non è data da riga di comando HPCG legge
+`hpcg.dat` e prende la griglia dei processi dalla riga 5; il nostro file ha 4 righe,
+quindi la griglia torna a 0 e HPCG la ricalcola da solo. I risultati non cambiano:
+in tutti i 21 run la riga `Processor Dimensions` dell'output coincide con la griglia
+passata, e il baseline del corso, senza opzioni, usa la stessa 4 × 2 × 2. Per imporre
+una griglia diversa andrebbe scritta nella riga 5 di `hpcg.dat`.
 
 :::{table} Configurazioni HPCG su un nodo (griglia globale 416 × 208 × 208, confermata dall'output di ogni run).
 :name: tab-es05-hpcg-config
@@ -392,13 +409,73 @@ stesso `patch_script` di sopra, cambiando anche `--nodes`. Tutti i job usano
   globale cresce con i processi (da 104³ a 832 × 416 × 416). Il punto a 16 processi
   è il run `10_16x1` del confronto su un nodo.
 - **HPCG strong**. Griglia globale 256³ fissa: la griglia locale si dimezza a ogni
-  raddoppio dei processi (da 256³ a 32 × 64 × 64). È più piccola di quella del
-  confronto su un nodo (416 × 208 × 208), e il run da 1 processo dura comunque
-  18 minuti (102 s solo di setup).
+  raddoppio dei processi (da 256³ a 32 × 64 × 64). La griglia globale deve dividersi
+  per ogni griglia dei processi usata, fino a 8 × 4 × 4, e ogni lato della griglia
+  locale deve essere un multiplo di 8, perché il multigrid di HPCG la dimezza tre
+  volte (`assert(nxf%2==0)` in `src/GenerateCoarseProblem.cpp`), e almeno 16, perché
+  sotto HPCG lo alza da solo (`src/init.cpp`). Quindi il lato globale in $x$ deve
+  essere multiplo di 64, quelli in $y$ e $z$ multipli di 32. La griglia del confronto
+  su un nodo non va bene: a 32 processi (4 × 4 × 2) la griglia locale sarebbe
+  104 × 52 × 104, e 52 non è multiplo di 8. Fra i cubi ammessi (192³, 256³, 320³, …)
+  256³ è il più vicino al problema su un nodo (16.8 contro 18.0 milioni di punti) e,
+  essendo una potenza di 2, ogni griglia locale resta una potenza di 2. Il run da
+  1 processo dura comunque 18 minuti (102 s solo di setup).
 
-La griglia dei processi di HPCG è scelta da `es05.sh` e passata con `--npx`,
-`--npy`, `--npz`: 1 × 1 × 1, 2 × 1 × 1, 2 × 2 × 1, 2 × 2 × 2, 4 × 2 × 2, 4 × 4 × 2,
-4 × 4 × 4, 8 × 4 × 4 per 1, 2, 4, …, 128 processi.
+La griglia dei processi è quella che HPCG sceglie da solo (le opzioni `--npx`,
+`--npy`, `--npz` aggiunte da `es05.sh` non hanno effetto, vedi sopra): 1 × 1 × 1,
+2 × 1 × 1, 2 × 2 × 1, 2 × 2 × 2, 4 × 2 × 2, 4 × 4 × 2, 4 × 4 × 4, 8 × 4 × 4 per 1, 2,
+4, …, 128 processi, come riporta la riga `Processor Dimensions` di ogni output.
+
+Le due serie a problema crescente, nel formato degli esempi della traccia (tempi
+misurati invece che previsti):
+
+:::{table} HPL memory-scaled su WILSON: righe `#SBATCH`, ordine della matrice e tempi misurati. Tutti i run usano $NB$ = 192 e la variante `WR11C2R4`; la riga `R01` è il run a memoria piena su un nodo.
+:name: tab-es05-hpl-memory-config
+
+| `--nodes` | `--ntasks-per-node` | `--cpus-per-task` | `--time` | $N$ | $P \times Q$ | Matrice per nodo | Tempo di calcolo HPL | Elapsed del job |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 2 | 8 | 00:30:00 | 41280 | 1 × 2 | 12.7 GiB | 180 s | 00:04:24 |
+| 2 | 2 | 8 | 01:00:00 | 58368 | 2 × 2 | 12.7 GiB | 292 s | 00:06:15 |
+| 4 | 2 | 8 | 01:00:00 | 82560 | 2 × 4 | 12.7 GiB | 423 s | 00:08:26 |
+| 8 | 2 | 8 | 01:00:00 | 116736 | 4 × 4 | 12.7 GiB | 927 s | 00:16:51 |
+| 1 (`R01`) | 2 | 8 | 01:00:00 | 82560 | 1 × 2 | 50.8 GiB | 1398 s | 00:28:46 |
+:::
+
+:::{table} HPCG weak su WILSON: righe `#SBATCH`, griglie e durate. La griglia locale e la durata richiesta restano fisse; l'elapsed comprende setup e validazione.
+:name: tab-es05-hpcg-weak-config
+
+| `--nodes` | `--ntasks-per-node` | `--cpus-per-task` | `--time` | Griglia locale | Griglia globale | Durata in `hpcg.dat` | Elapsed del job |
+|---|---|---|---|---|---|---|---|
+| 1 | 1 | 1 | 00:30:00 | 104³ | 104 × 104 × 104 | 60 s | 00:01:53 |
+| 1 | 2 | 1 | 00:30:00 | 104³ | 208 × 104 × 104 | 60 s | 00:01:52 |
+| 1 | 4 | 1 | 00:30:00 | 104³ | 208 × 208 × 104 | 60 s | 00:02:02 |
+| 1 | 8 | 1 | 00:30:00 | 104³ | 208 × 208 × 208 | 60 s | 00:02:08 |
+| 1 | 16 | 1 | 01:00:00 | 104³ | 416 × 208 × 208 | 60 s | 00:02:59 |
+| 2 | 16 | 1 | 00:30:00 | 104³ | 416 × 416 × 208 | 60 s | 00:03:10 |
+| 4 | 16 | 1 | 00:30:00 | 104³ | 416 × 416 × 416 | 60 s | 00:03:37 |
+| 8 | 16 | 1 | 00:30:00 | 104³ | 832 × 416 × 416 | 60 s | 00:04:32 |
+:::
+
+**Rispetto agli esempi della traccia.** La traccia propone HPL memory-scaled con
+4 processi × 4 thread per nodo e circa 51 GiB di matrice per nodo ($N$ = 82560 su un
+nodo, poi fino a 20 nodi), e HPCG weak con 16 processi × 1 thread per nodo e griglia
+locale fissa, fino a 20 nodi con `--time=00:10:00`. Le nostre serie seguono lo stesso
+schema, con quattro differenze:
+
+- **2 × 8 invece di 4 × 4 per HPL**: è la ripartizione migliore su un nodo; 4 × 4 è
+  l'1.4% più lenta (sezione 3).
+- **12.7 GiB di matrice per nodo invece di 51 GiB**: a 51 GiB il run su un nodo
+  (`R01`) calcola per 23 minuti contro 3 minuti a $N$ = 41280, e la serie a 8 nodi
+  richiederebbe $N \approx 82560\sqrt{8} \approx 233\,000$. Per una stima: il lavoro
+  per nodo crescerebbe di $\sqrt{8} \approx 2.8$ volte, quindi almeno 66 minuti di
+  calcolo anche con efficienza 1 (stima, non misurata). A 51 GiB per nodo c'è quindi
+  solo il punto a un nodo, `R01`, usato per il confronto con il picco (sezione 11).
+- **Al massimo 8 nodi invece di 10 e 20**: la partizione ha solo 8 nodi Sandy
+  Bridge, e con 10 o 20 nodi si mescolerebbero generazioni di CPU con picchi
+  diversi, cosa che la consegna chiede di evitare.
+- **HPCG weak anche dentro un nodo** (1, 2, 4 e 8 processi), per separare l'effetto
+  della banda di memoria da quello della rete, e `--time` di 30 minuti invece di 10.
+  Il job più lungo è durato 4 min 32 s, quindi 10 minuti sarebbero bastati.
 
 ### Comandi
 
@@ -690,10 +767,12 @@ di ciascuno si riduce.
 :width: 100%
 
 HPL, **strong scaling** (matrice fissa, $N$ = 41280; run `S001`–`S128`) su nodi
-Sandy Bridge. A sinistra: speedup rispetto a 1 core, da 1 core a 8 nodi (assi
-logaritmici; tratteggio: speedup ideale). A destra: efficienza rispetto a un nodo;
-per confronto c'è anche la curva dello studio **memory-scaled** della sezione 8
-(run `M02`–`M08`), dove invece $N$ cresce con i nodi.
+Sandy Bridge, da 1 core a 8 nodi. In alto: tempo di calcolo e speedup rispetto a
+1 core (assi logaritmici; tratteggio: ideale). In basso a sinistra: efficienza
+rispetto a 1 core, con un riferimento gonfiato dal turbo. In basso a destra:
+efficienza rispetto a un nodo; per confronto c'è anche la curva dello studio
+**memory-scaled** della sezione 8 (run `M02`–`M08`), dove invece $N$ cresce con i
+nodi.
 ```
 
 Dentro un nodo lo speedup è quasi ideale fino a 2 core e arriva a 12.6 con 16 core.
@@ -808,16 +887,30 @@ fornire.
 | 128 | 8 | 832 × 416 × 416 | **44.63** | 0.29 | 0.64 | 343.3 | 27% |
 :::
 
+```{figure} figures/es05-hpcg-weak.png
+:name: fig-es05-hpcg-weak
+:width: 100%
+
+HPCG weak scaling (griglia locale 104³), assi logaritmici: rate validato contro
+l'ideale $p \cdot R_1$ (tratteggio) e contro l'ideale da un nodo pieno
+$k \cdot R_{16}$ con $k$ nodi (puntini). Dentro il nodo il rate si appiattisce fra 8
+e 16 processi; fra i nodi segue quasi l'ideale da un nodo fino a 2 nodi, poi se ne
+allontana.
+```
+
 ```{figure} figures/es05-hpcg-scaling.png
 :name: fig-es05-hpcg-scaling
 :width: 100%
 
-HPCG su nodi Sandy Bridge, 16 processi da 1 thread per nodo: efficienza
-$R_p / (p R_1)$ rispetto al run da 1 processo, per il weak scaling (griglia locale
-fissa) e per lo strong scaling (griglia globale fissa).
+HPCG su nodi Sandy Bridge, 16 processi da 1 thread per nodo, weak scaling (griglia
+locale fissa) e strong scaling (griglia globale fissa). A sinistra: efficienza
+$R_p / (p R_1)$ rispetto al run da 1 processo. A destra: efficienza per nodo
+$R_k / (k R_{16})$ rispetto al run da 16 processi, lo stesso riferimento per i due
+studi: a 16 processi weak e strong risolvono quasi lo stesso problema (18.0 e 16.8
+milioni di punti, 8.70 e 8.64 GFLOP/s).
 ```
 
-Il comportamento ha due fasi. **Dentro il nodo** l'efficienza resta vicina a 1 fino
+Il comportamento ha due fasi ({numref}`fig-es05-hpcg-weak`). **Dentro il nodo** l'efficienza resta vicina a 1 fino
 a 4 processi, poi scende: con 8 processi la banda stimata da HPCG è già 58.7 GB/s,
 con 16 solo 67.5 GB/s (+15%), e il rate cresce di conseguenza solo da 7.46 a 8.70
 (+17%). Raddoppiare i core non serve se la memoria è già quasi satura. **Fra i
@@ -828,12 +921,27 @@ sale dal 2-3% al 14% e al 27% (sezione 10).
 
 ### 10. HPCG: strong scaling e il peso di `DDOT`
 
-**Idea.** Stessa griglia globale (256³) divisa fra sempre più processi. A ogni
+**Idea.** Stessa griglia globale (256³) divisa fra sempre più processi. HPCG riceve
+solo la griglia locale: `es05.sh` gli passa 256 diviso per la griglia dei processi
+(colonna "Griglia locale"), e l'output di ogni run conferma la griglia globale 256³. A ogni
 iterazione del gradiente coniugato servono prodotti scalari globali (`DDOT`): ogni
 processo calcola la sua parte, poi una `MPI_Allreduce` somma i contributi di
 tutti. È un punto di sincronizzazione: nessun processo può proseguire finché tutti
 non sono arrivati. Più piccola è la parte di ciascuno, più il tempo di queste
 somme pesa rispetto al calcolo.
+
+**Perché 256³.** Nessun documento parla di 256³: è una scelta nostra. La regola viene
+da HPCG: ogni lato della griglia locale deve essere un multiplo di 8 e almeno 16. Nel
+sorgente di HPCG 3.1 il multigrid ha 4 livelli
+([`src/main.cpp`](https://github.com/hpcg-benchmark/hpcg/blob/HPCG-release-3-1-0/src/main.cpp#L139))
+e passa da un livello al successivo dimezzando ogni lato, che deve essere pari
+([`src/GenerateCoarseProblem.cpp`](https://github.com/hpcg-benchmark/hpcg/blob/HPCG-release-3-1-0/src/GenerateCoarseProblem.cpp#L50-L51)):
+tre dimezzamenti richiedono un lato divisibile per $2^3 = 8$. Un lato sotto 16 viene
+alzato da HPCG stesso
+([`src/init.cpp`](https://github.com/hpcg-benchmark/hpcg/blob/HPCG-release-3-1-0/src/init.cpp#L103-L112)),
+e il problema non sarebbe più quello voluto. 256 rispetta la regola con ogni griglia
+dei processi fino a 8 × 4 × 4: la griglia locale più piccola è 32 × 64 × 64. Il
+confronto con le altre griglie possibili è in "Configurazioni degli studi di scaling".
 
 :::{table} HPCG strong scaling, griglia globale 256³, 60 s richiesti. Efficienza rispetto a 1 processo e, da 16 processi in su, rispetto a un nodo pieno; rate grezzo del multigrid; tempo in `DDOT` e tempo di `MPI_Allreduce` minimo e massimo fra i processi.
 :name: tab-es05-hpcg-strong
@@ -850,6 +958,15 @@ somme pesa rispetto al calcolo.
 | 128 | 8 | 32 × 64 × 64 | 12.10 | 0.09 | 0.18 | 50.32 | 59.0 s (77%) | 36.2–59.2 |
 :::
 
+```{figure} figures/es05-hpcg-strong.png
+:name: fig-es05-hpcg-strong
+:width: 100%
+
+HPCG strong scaling (griglia globale 256³), assi logaritmici: rate validato e rate
+del solo multigrid contro l'ideale $p \cdot R_1$. Il multigrid continua a crescere
+fino a 8 nodi, il rate complessivo ha il massimo a 2 nodi e poi scende.
+```
+
 ```{figure} figures/es05-hpcg-tempi.png
 :name: fig-es05-hpcg-tempi
 :width: 100%
@@ -862,8 +979,9 @@ con somma globale (DDOT) e aggiornamenti di vettori (WAXPBY).
 Fino a 2 nodi lo strong scaling di HPCG è quasi perfetto fra i nodi (efficienza per
 nodo 0.98) e dà il rate più alto della serie, 16.9 GFLOP/s. Poi il rate **scende**:
 15.3 a 4 nodi e 12.1 a 8. I kernel di calcolo continuano a scalare (il multigrid
-passa da 17.7 a 30.1 e 50.3 GFLOP/s), ma `DDOT` passa da 2 s a 30 e 59 s, cioè dal
-3% al 50% e al 77% del tempo. I dati sommati in ogni `MPI_Allreduce` sono pochi
+passa da 17.7 a 30.1 e 50.3 GFLOP/s, {numref}`fig-es05-hpcg-strong`), ma `DDOT`
+passa da 2 s a 30 e 59 s, cioè dal 3% al 50% e al 77% del tempo
+({numref}`fig-es05-hpcg-tempi`). I dati sommati in ogni `MPI_Allreduce` sono pochi
 numeri, quindi il problema non è la quantità di dati. Anche il processo che aspetta
 meno passa 9.3 s (4 nodi) e 36.2 s (8 nodi) nella riduzione, contro meno di 1 s su
 un nodo: ogni somma globale fra nodi costa molto più che dentro un nodo, e i
@@ -897,6 +1015,84 @@ su un nodo è `R01` a memoria piena, all'**87.4%** del picco. Su 8 nodi HPL scen
 47% e HPCG all'1.8%: entrambi perdono, ma per motivi diversi. HPL perde nel passaggio
 a 8 nodi (sezione 8), mentre HPCG perde già dentro il nodo, per la banda di memoria,
 e poi fra i nodi, per le somme globali.
+
+### 12. Speedup, efficienza e confronto fra weak e strong
+
+**Idea.** Gli studi di scaling rispondono a due domande diverse. Con il problema
+fisso (strong) ci si chiede quanto più in fretta si risolve lo stesso problema; con
+il problema che cresce insieme ai nodi (weak per HPCG, memory-scaled per HPL) quanto
+più grande può diventare il problema mantenendo il ritmo di ogni nodo. L'ideale è lo
+stesso: con $k$ nodi il rate diventa $k$ volte quello di un nodo. Lo si misura con lo
+**speedup** $S_k = R_k / R_1$ e con l'**efficienza** $E_k = S_k / k$, dove $R_1$ è il
+rate su un nodo pieno; l'ideale è $S_k = k$ ed $E_k = 1$. Nello strong $S_k$ è lo
+speedup classico $T_1 / T_k$; negli studi a problema crescente è lo *scaled speedup*,
+il rate rispetto a un nodo con un problema più grande. Come avverte la traccia, dai
+run memory-scaled non si ricava lo speedup di strong scaling: il rapporto dei tempi
+$T_1/T_k$ confronterebbe problemi diversi, e anzi il tempo cresce con i nodi
+(sezione 8). Per questo negli studi a problema crescente si usa il rapporto dei
+rate, che per HPCG weak è proprio quello indicato dalla traccia: rate validato,
+baseline il run completo su un nodo, efficienza $R_k/(k R_1)$.
+
+Il riferimento è un nodo pieno, non un processo o un core: il run HPL su 1 core è
+gonfiato dal turbo (sezione 7), e i run HPCG da 1 processo di weak e strong
+riguardano problemi diversi, 104³ contro 256³, cioè 1.12 contro 16.8 milioni di punti
+(sezione 9). Su un nodo pieno invece i due studi partono dallo stesso punto: per HPL
+è lo stesso run (`S016`), per HPCG due run quasi uguali. Con 16 processi il weak ha
+griglia globale 416 × 208 × 208 (18.0 milioni di punti) e lo strong 256³ (16.8
+milioni); ogni processo ha una griglia locale di 104³ (1.12 milioni di punti) contro
+64 × 128 × 128 (1.05 milioni), con una superficie da scambiare con i vicini di
+$6 \cdot 104^2 = 64.9$ mila punti contro $2\,(64 \cdot 128 + 64 \cdot 128 + 128 \cdot 128) = 65.5$
+mila. Calcolo e comunicazione per processo sono quindi quasi gli stessi, e infatti il
+rate differisce dello 0.7% (8.70 e 8.64 GFLOP/s). Da lì le due serie si separano per
+costruzione: il weak tiene fissa la griglia locale, lo strong la griglia globale.
+
+:::{table} Speedup $S_k$ ed efficienza $E_k$ (tra parentesi) rispetto a un nodo pieno. HPL: 2 processi × 8 thread per nodo; HPCG: 16 processi × 1 thread per nodo.
+:name: tab-es05-confronto
+
+| Nodi | HPL strong ($N$ = 41280) | HPL memory-scaled ($N \propto \sqrt{k}$) | HPCG weak (104³ per processo) | HPCG strong (256³) |
+|---|---|---|---|---|
+| 1 | 1.00 (1.00) | 1.00 (1.00) | 1.00 (1.00) | 1.00 (1.00) |
+| 2 | 1.60 (0.80) | 1.74 (0.87) | 1.90 (0.95) | 1.96 (0.98) |
+| 4 | **2.64** (0.66) | 3.40 (0.85) | 3.25 (0.81) | 1.77 (0.44) |
+| 8 | 2.19 (0.27) | 4.39 (0.55) | **5.13** (0.64) | 1.40 (0.18) |
+:::
+
+```{figure} figures/es05-scaling-confronto.png
+:name: fig-es05-scaling-confronto
+:width: 100%
+
+Speedup (in alto, assi logaritmici, tratteggio: ideale $S = k$) ed efficienza (in
+basso) rispetto a un nodo pieno per i quattro studi di scaling. Arancione: problema
+che cresce con i nodi (HPL memory-scaled, HPCG weak); blu: problema fisso (strong).
+Linea continua e cerchi: HPL; tratteggio e quadrati: HPCG.
+```
+
+**Problema che cresce contro problema fisso.** In entrambi i benchmark lo studio a
+problema crescente tiene meglio: a 8 nodi l'efficienza è 0.55 contro 0.27 per HPL e
+0.64 contro 0.18 per HPCG. Con il problema fisso il lavoro di ogni nodo scende come
+$1/k$, mentre la comunicazione di ogni passo scende meno: per HPL l'invio del
+pannello e lo scambio delle righe di pivot (sezione 7), per HPCG le somme globali di
+`DDOT`, che a ogni iterazione sono le stesse qualunque sia la taglia del problema
+(sezione 10).
+
+**Lo speedup strong ha un massimo.** HPL strong arriva a 2.64 con 4 nodi e scende a
+2.19 con 8 (il tempo risale da 68 a 82 s); HPCG strong arriva a 1.96 con 2 nodi e
+scende a 1.40 con 8. Oltre quel punto aggiungere nodi rallenta il calcolo: per questi
+problemi conviene fermarsi a 4 nodi con HPL e a 2 con HPCG. Negli studi a problema
+crescente lo speedup continua a salire (4.39 e 5.13 con 8 nodi), anche se più
+lentamente dell'ideale. In HPCG weak e strong si comportano allo stesso modo fino a
+2 nodi (0.95 e 0.98); da 4 nodi lo strong crolla (0.44), quando la griglia locale
+scende a 64³, circa un quarto di quella del weak (104³).
+
+**HPL contro HPCG.** Ogni curva è relativa al proprio nodo, quindi la figura
+confronta la qualità dello scaling, non le prestazioni: in valore assoluto HPL fa
+circa 30 volte i GFLOP/s di HPCG (sezione 11). I due problemi fissi hanno una taglia
+simile, 12–14 GB, circa un quinto della memoria di un nodo (la matrice di HPL è
+12.7 GiB, HPCG riporta 12.0 GB per 256³). Con il problema fisso HPCG crolla prima di
+HPL perché fra una somma globale e l'altra fa poco calcolo, mentre HPL fra una
+comunicazione e l'altra esegue molte operazioni di `DGEMM`. Con il problema che
+cresce l'ordine si inverte (0.64 contro 0.55 a 8 nodi), ma con un solo run per punto
+la differenza va presa come indicativa.
 
 ## Commenti
 

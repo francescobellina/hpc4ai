@@ -1,0 +1,8 @@
+t2x2           P=1   lambda=1    steps=200  tol=1e-6   | seriale: 35 tolerance           | MPI: 35 tolerance           uguali | valori: 4; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 1; rows per rank: 2-2
+small          P=1   lambda=1    steps=200  tol=1e-6   | seriale: 44 tolerance           | MPI: 44 tolerance           uguali | valori: 323; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 1; rows per rank: 17-17
+small-fisso    P=1   lambda=1    steps=200  tol=0      | seriale: 200 iteration limit    | MPI: 200 iteration limit    uguali | valori: 323; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 1; rows per rank: 17-17
+medium         P=1   lambda=1    steps=200  tol=1e-6   | seriale: 53 tolerance           | MPI: 53 tolerance           uguali | valori: 4194304; max |differenza|: 0.000e+00 (< 1e-12)
+    Ranks: 1; rows per rank: 2048-2048

@@ -1,0 +1,28 @@
+/srv/data/wilson/project/hpc4ai/exercises/image-denoising/:
+total 52
+-rw-r--r--. 1 marcoce hpc4ai 5134 Nov 14 16:57 denoise_serial.c
+drwxr-sr-x. 5 marcoce hpc4ai    5 Nov 14 17:59 images
+-rw-r--r--. 1 marcoce hpc4ai 3230 Nov 14 16:19 pgm_io.h
+-rw-r--r--. 1 marcoce hpc4ai 1724 Nov 14 16:19 prepare_image.py
+-rw-r--r--. 1 marcoce hpc4ai 4428 Nov 14 18:01 README.md
+
+/srv/data/wilson/project/hpc4ai/exercises/image-denoising/images:
+total 2
+drwxr-sr-x. 2 marcoce hpc4ai 4 Nov 14 17:59 large
+drwxr-sr-x. 2 marcoce hpc4ai 4 Nov 14 17:59 medium
+drwxr-sr-x. 2 marcoce hpc4ai 4 Nov 14 17:59 small
+
+/srv/data/wilson/project/hpc4ai/exercises/image-denoising/images/large:
+total 166311
+-rw-r--r--. 1 marcoce hpc4ai 221847573 Nov 14 17:59 clean.pgm
+-rw-r--r--. 1 marcoce hpc4ai 220890207 Nov 14 18:00 noisy.pgm
+
+/srv/data/wilson/project/hpc4ai/exercises/image-denoising/images/medium:
+total 10465
+-rw-r--r--. 1 marcoce hpc4ai 13865221 Nov 14 17:59 clean.pgm
+-rw-r--r--. 1 marcoce hpc4ai 13804489 Nov 14 17:59 noisy.pgm
+
+/srv/data/wilson/project/hpc4ai/exercises/image-denoising/images/small:
+total 21
+-rw-r--r--. 1 marcoce hpc4ai 1082 Nov 14 17:59 clean.pgm
+-rw-r--r--. 1 marcoce hpc4ai 1075 Nov 14 17:59 noisy.pgm

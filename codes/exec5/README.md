@@ -64,8 +64,10 @@ run su un nodo a N = 82560 (`R01_...`) per il confronto con il picco.
 
 `hpcg-scaling` usa 16 processi × 1 thread per nodo: weak scaling con griglia locale
 104³ da 1 a 128 processi (`W<proc>_...`; il punto a 16 è `10_16x1`) e strong
-scaling con griglia globale 256³ (`S<proc>_...`), con griglie locali multiple di 8
-e griglia dei processi passata con `--npx/--npy/--npz`.
+scaling con griglia globale 256³ (`S<proc>_...`), con griglie locali multiple di 8.
+Lo script passa la griglia dei processi con `--npx/--npy/--npz`, ma HPCG 3.1 le
+ignora (la cerca nella riga 5 di `hpcg.dat`) e la ricalcola da solo; per le potenze
+di 2 usate le due coincidono, come conferma `Processor Dimensions` nell'output.
 
 `collect` scrive, per ogni cartella con un job: input, script batch, riga `sacct`
 (stato, exit code, tempo), output completi, righe `WR...`/`PASSED` di HPL e

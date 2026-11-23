@@ -66,6 +66,8 @@ project:
         title: Versione precedente (OLD)
     - file: content/esercizi/es05-hpl-hpcg.md
       title: "Esercizio 5 — Benchmarking con HPL e HPCG"
+    - file: content/esercizi/es06-image-denoising.md
+      title: "Esercizio 6 — Image denoising in parallel"
     - file: content/esercizi/riepilogo.md
       title: Riepilogo dei risultati
     - file: content/esercizi/appendice-codici.md
