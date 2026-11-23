@@ -13,7 +13,7 @@ discussione.
 | 4 — Profiling e ottimizzazione | [`codes/exec4/`](../../codes/exec4/README.md) | `preprocess.c` originale, `preprocess_rows.c` con i cicli di `compute_statistics` scambiati, `es04_all.sh` che riproduce tutte le misure in un job Slurm (log in `results/es04/`) |
 | 5 — HPL e HPCG | [`codes/exec5/`](../../codes/exec5/README.md) | `es05.sh` (setup, serie di run, raccolta su WILSON) e `analyze_es05.py` (tabelle e figure dai log in `results/es05/`) |
 
-Il notebook [`report-exercises.ipynb`](notebooks/report-exercises.ipynb) contiene
+Il notebook [`report-exercises.ipynb`](notebooks/report-exercises.ipynb) (leggibile già eseguito [su GitHub](https://github.com/francescobellina/hpc4ai/blob/main/content/esercizi/notebooks/report-exercises.ipynb) o [su nbviewer](https://nbviewer.org/github/francescobellina/hpc4ai/blob/main/content/esercizi/notebooks/report-exercises.ipynb)) contiene
 la versione Python/NumPy dell'Esercitazione 1 (studio di convergenza e grafici) e
 i template di riferimento per l'Esercitazione 2 (C, MPI, Slurm).
 

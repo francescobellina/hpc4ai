@@ -213,7 +213,7 @@ Il punto di passaggio tra i limiti è la *ridge point*, $I_{\mathrm{ridge}}=P_{\
 
 Un esempio puramente ipotetico usa $P_{\max}=1.5\ \mathrm{Tflop/s}$ e $B=100\ \mathrm{GB/s}$: la ridge point è $15\ \mathrm{flop/byte}$. Questi numeri illustrano il calcolo e non descrivono WILSON.
 
-Il [notebook Roofline](notebooks/performance-models.ipynb) permette di esplorare questo modello con parametri ipotetici. I valori prodotti dal notebook non sono benchmark verificati di un sistema reale.
+Il [notebook Roofline](notebooks/performance-models.ipynb) permette di esplorare questo modello con parametri ipotetici; si può leggere già eseguito, senza lanciarlo, [su GitHub](https://github.com/francescobellina/hpc4ai/blob/main/content/teoria/notebooks/performance-models.ipynb) o [su nbviewer](https://nbviewer.org/github/francescobellina/hpc4ai/blob/main/content/teoria/notebooks/performance-models.ipynb). I valori prodotti dal notebook non sono benchmark verificati di un sistema reale.
 
 (t-complessita)=
 ### Complessità, O(...)

@@ -434,7 +434,7 @@ una misura di tempi.
 | Quando usarla | scambi semplici con ordine sicuro, o `MPI_Sendrecv` | scambi con più vicini, halo, sovrapposizione calcolo/comunicazione |
 
 **Quanto è "grande" un messaggio grande?** Dipende dall'implementazione. Nel
-notebook {ref}`programmiamo-con-mpi` lo misuriamo: con Open MPI 5.0.11 sul Mac lo
+notebook {ref}`programmiamo-con-mpi` (leggibile già eseguito [su GitHub](https://github.com/francescobellina/hpc4ai/blob/main/content/teoria/notebooks/programmiamo-con-mpi.ipynb) o [su nbviewer](https://nbviewer.org/github/francescobellina/hpc4ai/blob/main/content/teoria/notebooks/programmiamo-con-mpi.ipynb)) lo misuriamo: con Open MPI 5.0.11 sul Mac lo
 scambio bloccante fra due processi funziona fino a 502 `double` (4016 byte) e si
 blocca da 503 in su, perché sotto il limite *eager* di 4096 byte (intestazione
 compresa) Open MPI copia il messaggio e lascia tornare la send. Alzando il limite con
