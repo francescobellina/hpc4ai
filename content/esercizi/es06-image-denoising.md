@@ -679,6 +679,66 @@ srun -p wilson --constraint=sandy_bridge --cpu-bind=cores -N 1 -n 4 \
     ./denoise_mpi images/medium/noisy.pgm mpi.pgm 1 200 1e-6 mpi.bin
 ```
 
+(es06-scaling-impl)=
+### Lo studio di scaling (fase 4)
+
+**La domanda.** Con $p$ rank ogni striscia ha $H/p$ righe, quindi il lavoro locale per
+iterazione è $\propto HW/p$, e nel caso ideale il tempo cala come $1/p$. Due cose non
+calano: la comunicazione **point-to-point** degli halo (ogni rank interno invia e
+riceve 2 righe da $W$ `double` per iterazione, qualunque sia $p$) e la riduzione
+**collettiva** `MPI_Allreduce`, che coinvolge tutti i rank e costa di più quando $p$
+cresce. In più, un'iterazione di Jacobi fa poche operazioni per byte letto, quindi
+dentro un nodo può fermarsi sulla banda di memoria prima che sui core.
+
+**Scelte, dalla consegna:**
+
+- **lavoro fisso**: `images/large/noisy.pgm` (8192 × 8192), $\lambda = 1$, 200
+  iterazioni, **tolleranza 0**. Ogni configurazione fa esattamente le stesse 200
+  iterazioni, e la `MPI_Allreduce` resta in ogni iterazione anche se non può fermare
+  il ciclo;
+- **un rank per core fisico**: `--hint=nomultithread`, `--cpu-bind=cores`, nodi
+  `sandy_bridge` in esclusiva (`--exclusive --mem=0`), prima dentro un nodo (1, 2, 4,
+  8, 16 rank) e poi su più nodi (2, 4, 8 nodi da 16 rank, cioè 32, 64, 128 rank);
+- **tempo**: quello stampato da `denoise_mpi`, cioè la fase iterativa (scambi e
+  riduzione compresi) del rank più lento, dopo una `MPI_Barrier`. Lettura, `Scatterv`,
+  `Gatherv` e scrittura sono escluse. Si riportano tempo, tempo per iterazione,
+  $S_p = T_1/T_p$ ed $E_p = S_p/p$, con $T_1$ il run MPI a 1 rank;
+- **ripetizioni**: 3 per configurazione; più un run del programma sequenziale del
+  corso, per controllare che la versione MPI a 1 rank non costi di più;
+- **correttezza durante lo scaling**: la prima ripetizione di ogni configurazione
+  scrive il `.bin` (512 MB), ne calcola lo SHA256 e lo cancella. Tutti gli SHA256
+  devono essere uguali, cioè risultato identico bit per bit per ogni $p$, senza tenere
+  su disco un file da 512 MB per configurazione;
+- **registrazione**: `sacct` (nodi, task, stato), nome e modello di CPU di ogni nodo,
+  moduli, versione di `mpicc` e maschere di `--cpu-bind=verbose`.
+
+**Stime prima di misurare**, dai dati del sequenziale su medium (8.26 ns per pixel e
+iterazione su un core):
+
+| Grandezza | Stima | Da dove viene |
+|---|---|---|
+| tempo per iterazione, 1 rank | 0.56 s; 200 iterazioni ≈ 111 s | $8.26\ \text{ns} \times 8192^2$ |
+| memoria del rank 0 con 1 rank | 2.2 GB | immagine intera + $f$ + `current` + `next` in `double` |
+| banda per core richiesta | ≈ 3.9 GB/s | circa 32 byte per pixel e iterazione (lettura di $f$ e di `current`, scrittura di `next` con write-allocate) |
+| halo per rank e iterazione | 128 KB inviati, 128 KB ricevuti | 2 righe da 8192 `double` |
+| dati locali a 128 rank | 12.8 MB per rank | 64 righe |
+
+16 core per 3.9 GB/s fanno circa 62 GB/s, più dei 51 GB/s che triad ha misurato su un
+nodo `sandy_bridge` nell'esercizio 3. **Previsione:** dentro un nodo lo speedup
+dovrebbe crescere bene fino a qualche rank e poi rallentare, perché la banda di
+memoria si satura; passando a più nodi la banda totale cresce con i nodi, e la
+comunicazione resta piccola rispetto al calcolo (128 KB contro decine di MB per
+iterazione). Sono previsioni da confrontare con le misure.
+
+Script: [`scaling_job.sh`](../../codes/exec6/README.md) (il job) e `scaling.sh` (invio e
+raccolta):
+
+```bash
+bash scaling.sh nodo      # 1 job: sequenziale + 1, 2, 4, 8, 16 rank su un nodo
+bash scaling.sh nodi      # 3 job: 2, 4, 8 nodi da 16 rank
+bash scaling.sh collect   # quando squeue è vuoto: RUN, sacct, maschere, SHA256
+```
+
 ## Procedura di validazione
 
 **Programma sequenziale.**
@@ -1071,6 +1131,52 @@ cambiare se cambiano le righe dei vicini, che entrano nei suoi halo. In più, se
 rank uscisse dal ciclo, i vicini resterebbero bloccati nel `MPI_Sendrecv` e tutti gli
 altri nella `MPI_Allreduce` successiva. Con il massimo globale tutti i rank hanno lo
 stesso `change` e prendono la stessa decisione nella stessa iterazione.
+
+:::
+
+:::{dropdown} 13. Perché per lo scaling si usa tolleranza 0, e cosa resta della decisione di arresto?
+
+Con tolleranza 0 la condizione `change < 0` non è mai vera, quindi ogni configurazione
+fa esattamente le stesse 200 iterazioni: stesso lavoro, e il rapporto fra i tempi è
+uno speedup vero. Con una tolleranza positiva il numero di iterazioni dipenderebbe
+dal criterio, non dal numero di rank, e non si confronterebbero cose uguali. La
+`MPI_Allreduce` resta comunque a ogni iterazione, perché fa parte del costo reale
+dell'algoritmo parallelo, anche se il suo risultato non può fermare il ciclo.
+
+:::
+
+:::{dropdown} 14. Perché si riporta il tempo del rank più lento, e perché si esclude la lettura e scrittura delle immagini?
+
+Il programma finisce quando finisce l'ultimo rank, e a ogni iterazione la
+`MPI_Allreduce` costringe tutti ad aspettare il più lento: il massimo sui rank è il
+tempo che si osserva davvero. La `MPI_Barrier` prima di far partire il cronometro
+evita di contare l'attesa di chi parte tardi. Lettura, distribuzione, raccolta e
+scrittura sono fatte dal solo rank 0 e non dipendono dal numero di rank, quindi
+nasconderebbero lo scaling della parte che si vuole studiare, cioè la fase iterativa.
+
+:::
+
+:::{dropdown} 15. Perché la comunicazione point-to-point per rank non cresce con $p$, mentre la riduzione collettiva sì?
+
+Ogni rank interno scambia sempre due righe da $W$ `double` con due vicini (128 KB
+inviati per iterazione con $W = 8192$), qualunque sia $p$: aumentando i rank diminuisce
+il lavoro locale, ma non i dati di confine. Il rapporto fra comunicazione e calcolo
+quindi **peggiora** con $p$, anche se la comunicazione per rank resta costante. La
+`MPI_Allreduce` invece deve combinare un valore da ognuno dei $p$ rank e restituire il
+risultato a tutti: tipicamente servono circa $\log_2 p$ passi di messaggi, quindi il
+suo costo cresce con $p$, e attraversa la rete quando i rank sono su più nodi.
+
+:::
+
+:::{dropdown} 16. Perché dentro un nodo ci si aspetta che lo speedup rallenti prima dei 16 rank?
+
+Un'iterazione di Jacobi legge e scrive circa 32 byte per pixel (lettura di $f$ e di
+`current`, scrittura di `next` con write-allocate) e fa pochissime operazioni per
+byte: è limitata dalla memoria. Dal sequenziale (8.26 ns per pixel) ogni core chiede
+circa 3.9 GB/s; 16 core ne chiederebbero circa 62 GB/s, più dei 51 GB/s che triad ha
+misurato su un nodo `sandy_bridge` nell'esercizio 3. Quando la banda è satura,
+aggiungere core sullo stesso nodo non accelera più; aggiungere nodi sì, perché ogni
+nodo porta la sua banda. È una previsione, da confrontare con le misure.
 
 :::
 

@@ -14,6 +14,7 @@ l'iterazione di Jacobi, versione sequenziale del corso e versione MPI a strisce
 | `denoise_mpi.c` | versione MPI a strisce; `jacobi_step` copiata identica dal corso |
 | `compare_bin.c` | differenza massima fra due `.bin` (soglia 1e-12) |
 | `test_mpi.sh` | validazione per piccoli passi: `uno`, `nodo`, `nodi` |
+| `scaling_job.sh`, `scaling.sh` | strong scaling su `images/large` (200 iterazioni, tolleranza 0): invio dei job (`nodo`, `nodi`) e raccolta (`collect`) |
 | `analyze_es06.py` | riferimento NumPy del passo di Jacobi (stesso ordine delle somme del C), confronto con le uscite del programma, MSE, PSNR, SSIM e figure `es06-ricostruzioni.png`, `es06-ssim-mappe.png`, `es06-profilo.png`, `es06-qualita-lambda.png` |
 
 ## Uso
