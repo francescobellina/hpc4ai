@@ -57,6 +57,8 @@ project:
       children:
       - file: content/esercizi/preparazione-laboratorio.md
         title: Guida di laboratorio (es. 2 e 3)
+    - file: content/esercizi/es03-tiny-stories.md
+      title: "Esercizio 3 — Tiny stories, many threads"
     - file: content/esercizi/es04-profiling-data-preparation.md
       title: "Esercizio 4 — Profiling e ottimizzazione"
       children:

@@ -1,0 +1,118 @@
+
+========== 1. Differenze dal run.c del corso ==========
+[fbellina2@wilson es03]$ diff run.c run_omp.c
+1a2,4
+> /* Esercizio 3 (HPC4AI): versione OpenMP.
+>    Differenze da run.c del corso: #pragma omp in matmul e nel ciclo sulle teste
+>    dell'attenzione. */
+219a223,225
+>     // OpenMP: ogni thread calcola righe diverse di xout. Ogni prodotto scalare resta
+>     // sommato da un solo thread nello stesso ordine, quindi il risultato è identico
+>     // bit per bit a quello seriale.
+220a227
+>     #pragma omp parallel for private(i)
+280a288,290
+>         // OpenMP: le teste sono indipendenti (ognuna usa la sua parte di s->att e di
+>         // s->xb), quindi ogni thread ne calcola alcune, ciascuna nello stesso ordine
+>         // del seriale.
+281a292
+>         #pragma omp parallel for private(h)
+[fbellina2@wilson es03]$ diff run.c run_omp_mm.c
+1a2,3
+> /* Esercizio 3 (HPC4AI): versione OpenMP con solo matmul parallelizzato.
+>    Unica differenza da run.c del corso: #pragma omp in matmul. */
+219a222,224
+>     // OpenMP: ogni thread calcola righe diverse di xout. Ogni prodotto scalare resta
+>     // sommato da un solo thread nello stesso ordine, quindi il risultato è identico
+>     // bit per bit a quello seriale.
+220a226
+>     #pragma omp parallel for private(i)
+
+========== 2. Compilazione (GCC/13.2.0) ==========
+[fbellina2@wilson es03]$ gcc -O3 -fopenmp -o run_omp run_omp.c -lm
+[fbellina2@wilson es03]$ gcc -O3 -fopenmp -o run_omp_mm run_omp_mm.c -lm
+[fbellina2@wilson es03]$ gcc -O3 -fno-inline -pg -o run_noinline_pg run.c -lm
+[fbellina2@wilson es03]$ gcc -O2 -o config config.c
+
+========== 3. Prova breve sul login node (15M, 32 token, 4 thread) ==========
+[fbellina2@wilson es03]$ ./run_omp /srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories15M.bin -t 0 -n 32 -i Once upon a time
+Once upon a time, there was a little girl named Lily. She loved to play outside in the sunshine. One day, she saw a bigachieved tok/s: 174.157303
+
+
+========== 4. Job OpenMP ==========
+[fbellina2@wilson es03]$ cat omp_job.sh
+#!/usr/bin/bash
+#SBATCH --job-name=es03_omp
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --hint=nomultithread
+#SBATCH --exclusive
+#SBATCH --mem=0
+#SBATCH --partition=wilson
+#SBATCH --constraint=sandy_bridge
+#SBATCH --time=01:00:00
+
+# Esercizio 3: profilo senza inlining, configurazione dei modelli, validazione e
+# scaling delle due versioni OpenMP (run_omp: matmul + teste; run_omp_mm: solo
+# matmul). Ogni run confronta il testo generato con quello seriale del job di baseline
+# (out_<modello>_r1.txt), quindi validazione e scaling sono la stessa misura.
+set -uo pipefail
+cd "$SLURM_SUBMIT_DIR"
+module load GCC/13.2.0
+DATA=/srv/data/wilson/project/hpc4ai/exercises/tiny_stories
+PROMPT="Once upon a time"
+STEPS=256
+echo "Job: $SLURM_JOB_ID; nodo: $SLURM_JOB_NODELIST"
+gcc --version | head -1
+
+echo "=== 0. Configurazione dei modelli"
+./config "$DATA"/stories15M.bin "$DATA"/stories42M.bin "$DATA"/stories110M.bin
+
+echo "=== 1. Profilo seriale senza inlining (gprof, -O3 -fno-inline)"
+for m in 15M 110M; do
+    echo "--- stories$m"
+    mkdir -p "gprof_noinline_$m" && ln -sf ../tokenizer.bin "gprof_noinline_$m/"
+    ( cd "gprof_noinline_$m" && srun --ntasks=1 --cpus-per-task=1 --cpu-bind=cores ../run_noinline_pg \
+        "$DATA/stories$m.bin" -t 0 -n $STEPS -i "$PROMPT" > out.txt 2> tok.txt
+      cat tok.txt
+      cmp -s out.txt "../out_${m}_r1.txt" && echo "testo identico al seriale" || echo "TESTO DIVERSO dal seriale"
+      gprof -b -p ../run_noinline_pg gmon.out | head -14 )
+done
+
+# run1 <programma> <modello> <thread> <ripetizione> <binding>
+run1() {
+    OMP_NUM_THREADS=$3 OMP_PLACES=cores OMP_PROC_BIND=$5 \
+        srun --ntasks=1 --cpus-per-task=16 --cpu-bind=cores ./"$1" "$DATA/stories$2.bin" \
+        -t 0 -n $STEPS -i "$PROMPT" > o.txt 2> e.txt
+    local tok same
+    tok=$(sed -n 's/achieved tok\/s: //p' e.txt)
+    cmp -s o.txt "out_$2_r1.txt" && same=identico || same=DIVERSO
+    printf '%-11s %-5s %3s %2s %-6s %12s %s\n' "$1" "$2" "$3" "$4" "$5" "${tok:-ERRORE}" "$same" | tee -a scaling.txt
+}
+
+echo "=== 2. Scaling e validazione (3 ripetizioni, OMP_PLACES=cores)"
+printf '%-11s %-5s %3s %2s %-6s %12s %s\n' programma model T r bind tok/s testo | tee scaling.txt
+for m in 15M 42M 110M; do
+    for v in run_omp run_omp_mm; do
+        for t in 1 2 4 8 16; do
+            for r in 1 2 3; do run1 "$v" "$m" "$t" "$r" spread; done
+        done
+    done
+done
+
+echo "=== 3. Disposizione dei thread: close (socket 0 prima) contro spread"
+for t in 4 8; do
+    run1 run_omp 110M "$t" 1 close
+    OMP_NUM_THREADS=$t OMP_PLACES=cores OMP_PROC_BIND=close srun --ntasks=1 --cpus-per-task=16 --cpu-bind=cores ./triad
+done
+
+echo "=== Riepilogo"
+grep -c identico scaling.txt | sed 's/^/run con testo identico: /'
+grep -c DIVERSO scaling.txt | sed 's/^/run con testo diverso: /'
+Inviato job 62659
+[fbellina2@wilson es03]$ squeue -u fbellina2
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+             62659    wilson es03_omp fbellina PD       0:00      1 (None)

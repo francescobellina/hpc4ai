@@ -392,6 +392,8 @@ Sul **client**, se serve il log: `scp fbellina2@wilson.mib.infn.it:~/hpc4ai/es02
 
 ## 10. Esercizio 3 — Tiny stories, many threads
 
+I risultati misurati su WILSON sono nella pagina dell'[esercizio 3](es03-tiny-stories.md); questa sezione è la guida di preparazione scritta prima dei run.
+
 Guida per l'esercizio [Tiny stories, many threads](https://virgilio.mib.infn.it/~marcoce/teaching/hpc4ai/content/exercises/index.html#tiny-stories-many-threads). I percorsi e i nomi file sono quelli della pagina del corso. Numeri di banda, tipo di nodo e tempo di generazione **non** sono nella pagina: misurali, non copiarli da qui.
 
 Il modello produce il testo **un token alla volta**: ogni token è un forward pass sull'intera rete, e il token emesso diventa l'input del passo successivo. Per questo il tempo cresce con il numero di token, non con una sola moltiplicazione. I modelli (`stories15M`, `stories42M`, `stories110M`) sono addestrati su [TinyStories](https://arxiv.org/abs/2305.07759): continuano un inizio di storia, non rispondono a domande.

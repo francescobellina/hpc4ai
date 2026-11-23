@@ -15,7 +15,7 @@ riferimento** rimanda alle sezioni dei capitoli di teoria che servono.
 |---|---|---|
 | [1 — Problema di Basilea](es01-basilea.md) | aritmetica in virgola mobile, ordine di somma, troncamento contro arrotondamento | cap. 1 |
 | [2 — Parallel Hello, World!](es02-parallel-hello-world.md) | thread OpenMP, rank MPI, layout ibrido, Slurm | cap. 2, 4, 5, 6 |
-| 3 — Tiny stories, many threads | non ancora svolto; la preparazione è nella [guida di laboratorio](preparazione-laboratorio.md) | — |
+| [3 — Tiny stories, many threads](es03-tiny-stories.md) | profilo, traffico di memoria per token, OpenMP su `matmul` e sulle teste, scaling e banda effettiva | cap. 1, 2, 3, 4, 5 |
 | [4 — Profiling e ottimizzazione della data preparation](es04-profiling-data-preparation.md) | profilo con `perf`, hotspot memory-bound, scambio dei cicli, Amdahl | cap. 1, 2, 3 |
 | [5 — Benchmarking e scaling con HPL e HPCG](es05-hpl-hpcg.md) | ripartizione MPI × thread, picco teorico, scaling su più nodi | cap. 2, 3, 4, 6 |
 

@@ -1,0 +1,1533 @@
+
+========== 0. Stato ==========
+[fbellina2@wilson es03]$ date
+Mon Nov 23 10:08:59 AM CET 2026
+[fbellina2@wilson es03]$ squeue -u fbellina2
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+[fbellina2@wilson es03]$ sacct -j 61832 --format=JobID,JobName%20,Partition,NodeList%16,NTasks,AllocCPUS,ReqMem,Timelimit,Elapsed,State,ExitCode
+JobID                     JobName  Partition         NodeList   NTasks  AllocCPUS     ReqMem  Timelimit    Elapsed      State ExitCode 
+------------ -------------------- ---------- ---------------- -------- ---------- ---------- ---------- ---------- ---------- -------- 
+61832               es03_baseline     wilson          wnode01                  32     62500M   01:00:00   00:03:35  COMPLETED      0:0 
+61832.batch                 batch                     wnode01        1         32                         00:03:35  COMPLETED      0:0 
+61832.0                       run                     wnode01        1          2                         00:00:04  COMPLETED      0:0 
+61832.1                       run                     wnode01        1          2                         00:00:04  COMPLETED      0:0 
+61832.2                       run                     wnode01        1          2                         00:00:04  COMPLETED      0:0 
+61832.3                       run                     wnode01        1          2                         00:00:12  COMPLETED      0:0 
+61832.4                       run                     wnode01        1          2                         00:00:10  COMPLETED      0:0 
+61832.5                       run                     wnode01        1          2                         00:00:11  COMPLETED      0:0 
+61832.6                       run                     wnode01        1          2                         00:00:35  COMPLETED      0:0 
+61832.7                       run                     wnode01        1          2                         00:00:31  COMPLETED      0:0 
+61832.8                       run                     wnode01        1          2                         00:00:31  COMPLETED      0:0 
+61832.9                    run_pg                     wnode01        1          2                         00:00:04  COMPLETED      0:0 
+61832.10                   run_pg                     wnode01        1          2                         00:00:32  COMPLETED      0:0 
+61832.11                     perf                     wnode01        1          2                         00:00:33  COMPLETED      0:0 
+61832.12                    triad                     wnode01        1         32                         00:00:02  COMPLETED      0:0 
+61832.13                    triad                     wnode01        1         32                         00:00:00  COMPLETED      0:0 
+61832.14                    triad                     wnode01        1         32                         00:00:00  COMPLETED      0:0 
+61832.15                    triad                     wnode01        1         32                         00:00:00  COMPLETED      0:0 
+61832.16                    triad                     wnode01        1         32                         00:00:00  COMPLETED      0:0 
+
+========== 1. Sorgenti ==========
+[fbellina2@wilson es03]$ sha256sum run.c triad.c
+2eebe23ba0ddfe3eb18f26f20dd5b89a94e6cff5682166b1b6d2eff4dfc1b24a  run.c
+9d5b8b25abf09b33d9b0268ea3f97b2c47958c004408f7276370041685f5cdb0  triad.c
+[fbellina2@wilson es03]$ cat triad.c
+/* Banda di memoria con il kernel "triad" di STREAM: a[i] = b[i] + s * c[i].
+   Tre array da N double (molto più grandi della cache L3); per ogni numero di
+   thread (OMP_NUM_THREADS) si tiene il migliore di REPS ripetizioni.
+   Byte contati: 3 * 8 * N per ripetizione (2 letture + 1 scrittura), come STREAM:
+   il traffico reale può essere maggiore per la write-allocate. */
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define N 40000000L   /* 320 MB per array */
+#define REPS 10
+
+int main(void)
+{
+    double *a = malloc(N * sizeof *a), *b = malloc(N * sizeof *b), *c = malloc(N * sizeof *c);
+    if (!a || !b || !c) { fprintf(stderr, "malloc fallita\n"); return 1; }
+
+    /* Inizializzazione parallela con lo stesso schedule del kernel (first touch). */
+    #pragma omp parallel for schedule(static)
+    for (long i = 0; i < N; ++i) { a[i] = 0.0; b[i] = 1.0; c[i] = 2.0; }
+
+    double best = 1e30, s = 3.0;
+    for (int r = 0; r < REPS; ++r) {
+        double t = omp_get_wtime();
+        #pragma omp parallel for schedule(static)
+        for (long i = 0; i < N; ++i) a[i] = b[i] + s * c[i];
+        t = omp_get_wtime() - t;
+        if (t < best) best = t;
+    }
+    /* Controllo: a[i] = 1 + 3 * 2 = 7 ovunque. */
+    for (long i = 0; i < N; i += N / 7)
+        if (a[i] != 7.0) { fprintf(stderr, "risultato errato a[%ld] = %g\n", i, a[i]); return 1; }
+
+    printf("triad: thread = %2d  tempo migliore = %.4f s  banda = %.2f GB/s\n",
+           omp_get_max_threads(), best, 3.0 * 8.0 * N / best / 1e9);
+    free(a); free(b); free(c);
+    return 0;
+}
+[fbellina2@wilson es03]$ cat baseline.sh
+#!/usr/bin/bash
+#SBATCH --job-name=es03_baseline
+#SBATCH --output=%x.%j.out
+#SBATCH --error=%x.%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --hint=nomultithread
+#SBATCH --exclusive
+#SBATCH --mem=0
+#SBATCH --partition=wilson
+#SBATCH --constraint=sandy_bridge
+#SBATCH --time=01:00:00
+
+set -uo pipefail
+cd "$SLURM_SUBMIT_DIR"
+module load GCC/13.2.0
+echo "Job: $SLURM_JOB_ID; nodo: $SLURM_JOB_NODELIST"
+lscpu
+module list 2>&1
+command -v perf && perf --version
+
+one() { srun --ntasks=1 --cpus-per-task=1 --cpu-bind=cores "$@"; }
+
+echo "=== 1. Baseline seriale: 256 token, -t 0, prompt \"Once upon a time\""
+for m in 15M 42M 110M; do
+    for r in 1 2 3; do
+        echo "--- stories$m run $r"
+        one ./run "/srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories$m.bin" -t 0 -n 256 -i "Once upon a time" > "out_${m}_r$r.txt" 2> "tok_${m}_r$r.txt"
+        cat "tok_${m}_r$r.txt"
+    done
+    cmp -s "out_${m}_r1.txt" "out_${m}_r2.txt" && cmp -s "out_${m}_r1.txt" "out_${m}_r3.txt" \
+        && echo "stories$m: testo identico nelle 3 ripetizioni" || echo "stories$m: TESTO DIVERSO fra le ripetizioni"
+done
+
+echo "=== 2. Profilo con gprof"
+for m in 15M 110M; do
+    mkdir -p "gprof_$m" && ln -sf ../tokenizer.bin "gprof_$m/" && ( cd "gprof_$m" && one ../run_pg "/srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories$m.bin" -t 0 -n 256 -i "Once upon a time" > /dev/null 2>&1 \
+        && gprof -b -p ../run_pg gmon.out | head -25 )
+done
+if command -v perf >/dev/null; then
+    echo "=== 2b. Profilo con perf (110M)"
+    one perf record -o perf_110M.data ./run "/srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories110M.bin" -t 0 -n 256 -i "Once upon a time" > /dev/null 2>&1
+    perf report -i perf_110M.data --stdio --sort symbol 2>/dev/null | grep -v '^#' | grep -v '^$' | head -20
+fi
+
+echo "=== 3. Banda di memoria (triad)"
+for t in 1 2 4 8 16; do
+    OMP_NUM_THREADS=$t OMP_PLACES=cores OMP_PROC_BIND=spread \
+        srun --ntasks=1 --cpus-per-task=16 --cpu-bind=cores ./triad
+done
+[fbellina2@wilson es03]$ cat run.c
+/* Inference for Llama-2 Transformer model in pure C */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <time.h>
+#include <math.h>
+#include <string.h>
+#include <fcntl.h>
+#if defined _WIN32
+    #include "win.h"
+#else
+    #include <unistd.h>
+    #include <sys/mman.h>
+#endif
+// ----------------------------------------------------------------------------
+// Transformer model
+
+typedef struct {
+    int dim; // transformer dimension
+    int hidden_dim; // for ffn layers
+    int n_layers; // number of layers
+    int n_heads; // number of query heads
+    int n_kv_heads; // number of key/value heads (can be < query heads because of multiquery)
+    int vocab_size; // vocabulary size, usually 256 (byte-level)
+    int seq_len; // max sequence length
+} Config;
+
+typedef struct {
+    // token embedding table
+    float* token_embedding_table;    // (vocab_size, dim)
+    // weights for rmsnorms
+    float* rms_att_weight; // (layer, dim) rmsnorm weights
+    float* rms_ffn_weight; // (layer, dim)
+    // weights for matmuls. note dim == n_heads * head_size
+    float* wq; // (layer, dim, n_heads * head_size)
+    float* wk; // (layer, dim, n_kv_heads * head_size)
+    float* wv; // (layer, dim, n_kv_heads * head_size)
+    float* wo; // (layer, n_heads * head_size, dim)
+    // weights for ffn
+    float* w1; // (layer, hidden_dim, dim)
+    float* w2; // (layer, dim, hidden_dim)
+    float* w3; // (layer, hidden_dim, dim)
+    // final rmsnorm
+    float* rms_final_weight; // (dim,)
+    // (optional) classifier weights for the logits, on the last layer
+    float* wcls;
+} TransformerWeights;
+
+typedef struct {
+    // current wave of activations
+    float *x; // activation at current time stamp (dim,)
+    float *xb; // same, but inside a residual branch (dim,)
+    float *xb2; // an additional buffer just for convenience (dim,)
+    float *hb; // buffer for hidden dimension in the ffn (hidden_dim,)
+    float *hb2; // buffer for hidden dimension in the ffn (hidden_dim,)
+    float *q; // query (dim,)
+    float *k; // key (dim,)
+    float *v; // value (dim,)
+    float *att; // buffer for scores/attention values (n_heads, seq_len)
+    float *logits; // output logits
+    // kv cache
+    float* key_cache;   // (layer, seq_len, dim)
+    float* value_cache; // (layer, seq_len, dim)
+} RunState;
+
+typedef struct {
+    Config config; // the hyperparameters of the architecture (the blueprint)
+    TransformerWeights weights; // the weights of the model
+    RunState state; // buffers for the "wave" of activations in the forward pass
+    // some more state needed to properly clean up the memory mapping (sigh)
+    int fd; // file descriptor for memory mapping
+    float* data; // memory mapped data pointer
+    ssize_t file_size; // size of the checkpoint file in bytes
+} Transformer;
+
+void malloc_run_state(RunState* s, Config* p) {
+    // we calloc instead of malloc to keep valgrind happy
+    int kv_dim = (p->dim * p->n_kv_heads) / p->n_heads;
+    s->x = calloc(p->dim, sizeof(float));
+    s->xb = calloc(p->dim, sizeof(float));
+    s->xb2 = calloc(p->dim, sizeof(float));
+    s->hb = calloc(p->hidden_dim, sizeof(float));
+    s->hb2 = calloc(p->hidden_dim, sizeof(float));
+    s->q = calloc(p->dim, sizeof(float));
+    s->key_cache = calloc(p->n_layers * p->seq_len * kv_dim, sizeof(float));
+    s->value_cache = calloc(p->n_layers * p->seq_len * kv_dim, sizeof(float));
+    s->att = calloc(p->n_heads * p->seq_len, sizeof(float));
+    s->logits = calloc(p->vocab_size, sizeof(float));
+    // ensure all mallocs went fine
+    if (!s->x || !s->xb || !s->xb2 || !s->hb || !s->hb2 || !s->q
+     || !s->key_cache || !s->value_cache || !s->att || !s->logits) {
+        fprintf(stderr, "malloc failed!\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void free_run_state(RunState* s) {
+    free(s->x);
+    free(s->xb);
+    free(s->xb2);
+    free(s->hb);
+    free(s->hb2);
+    free(s->q);
+    free(s->att);
+    free(s->logits);
+    free(s->key_cache);
+    free(s->value_cache);
+}
+
+void memory_map_weights(TransformerWeights *w, Config* p, float* ptr, int shared_weights) {
+    int head_size = p->dim / p->n_heads;
+    // make sure the multiplications below are done in 64bit to fit the parameter counts of 13B+ models
+    unsigned long long n_layers = p->n_layers;
+    w->token_embedding_table = ptr;
+    ptr += p->vocab_size * p->dim;
+    w->rms_att_weight = ptr;
+    ptr += n_layers * p->dim;
+    w->wq = ptr;
+    ptr += n_layers * p->dim * (p->n_heads * head_size);
+    w->wk = ptr;
+    ptr += n_layers * p->dim * (p->n_kv_heads * head_size);
+    w->wv = ptr;
+    ptr += n_layers * p->dim * (p->n_kv_heads * head_size);
+    w->wo = ptr;
+    ptr += n_layers * (p->n_heads * head_size) * p->dim;
+    w->rms_ffn_weight = ptr;
+    ptr += n_layers * p->dim;
+    w->w1 = ptr;
+    ptr += n_layers * p->dim * p->hidden_dim;
+    w->w2 = ptr;
+    ptr += n_layers * p->hidden_dim * p->dim;
+    w->w3 = ptr;
+    ptr += n_layers * p->dim * p->hidden_dim;
+    w->rms_final_weight = ptr;
+    ptr += p->dim;
+    ptr += p->seq_len * head_size / 2; // skip what used to be freq_cis_real (for RoPE)
+    ptr += p->seq_len * head_size / 2; // skip what used to be freq_cis_imag (for RoPE)
+    w->wcls = shared_weights ? w->token_embedding_table : ptr;
+}
+
+void read_checkpoint(char* checkpoint, Config* config, TransformerWeights* weights,
+                     int* fd, float** data, ssize_t* file_size) {
+    FILE *file = fopen(checkpoint, "rb");
+    if (!file) { fprintf(stderr, "Couldn't open file %s\n", checkpoint); exit(EXIT_FAILURE); }
+    // read in the config header
+    if (fread(config, sizeof(Config), 1, file) != 1) { exit(EXIT_FAILURE); }
+    // negative vocab size is hacky way of signaling unshared weights. bit yikes.
+    int shared_weights = config->vocab_size > 0 ? 1 : 0;
+    config->vocab_size = abs(config->vocab_size);
+    // figure out the file size
+    fseek(file, 0, SEEK_END); // move file pointer to end of file
+    *file_size = ftell(file); // get the file size, in bytes
+    fclose(file);
+    // memory map the Transformer weights into the data pointer
+    *fd = open(checkpoint, O_RDONLY); // open in read only mode
+    if (*fd == -1) { fprintf(stderr, "open failed!\n"); exit(EXIT_FAILURE); }
+    *data = mmap(NULL, *file_size, PROT_READ, MAP_PRIVATE, *fd, 0);
+    if (*data == MAP_FAILED) { fprintf(stderr, "mmap failed!\n"); exit(EXIT_FAILURE); }
+    float* weights_ptr = *data + sizeof(Config)/sizeof(float);
+    memory_map_weights(weights, config, weights_ptr, shared_weights);
+}
+
+void build_transformer(Transformer *t, char* checkpoint_path) {
+    // read in the Config and the Weights from the checkpoint
+    read_checkpoint(checkpoint_path, &t->config, &t->weights, &t->fd, &t->data, &t->file_size);
+    // allocate the RunState buffers
+    malloc_run_state(&t->state, &t->config);
+}
+
+void free_transformer(Transformer* t) {
+    // close the memory mapping
+    if (t->data != MAP_FAILED) { munmap(t->data, t->file_size); }
+    if (t->fd != -1) { close(t->fd); }
+    // free the RunState buffers
+    free_run_state(&t->state);
+}
+
+// ----------------------------------------------------------------------------
+// neural net blocks; the dynamics of the Transformer
+
+void rmsnorm(float* o, float* x, float* weight, int size) {
+    // calculate sum of squares
+    float ss = 0.0f;
+    for (int j = 0; j < size; j++) {
+        ss += x[j] * x[j];
+    }
+    ss /= size;
+    ss += 1e-5f;
+    ss = 1.0f / sqrtf(ss);
+    // normalize and scale
+    for (int j = 0; j < size; j++) {
+        o[j] = weight[j] * (ss * x[j]);
+    }
+}
+
+void softmax(float* x, int size) {
+    // find max value (for numerical stability)
+    float max_val = x[0];
+    for (int i = 1; i < size; i++) {
+        if (x[i] > max_val) {
+            max_val = x[i];
+        }
+    }
+    // exp and sum
+    float sum = 0.0f;
+    for (int i = 0; i < size; i++) {
+        x[i] = expf(x[i] - max_val);
+        sum += x[i];
+    }
+    // normalize
+    for (int i = 0; i < size; i++) {
+        x[i] /= sum;
+    }
+}
+
+void matmul(float* xout, float* x, float* w, int n, int d) {
+    // W (d,n) @ x (n,) -> xout (d,)
+    // by far the most amount of time is spent inside this little function
+    int i;
+    for (i = 0; i < d; i++) {
+        float val = 0.0f;
+        for (int j = 0; j < n; j++) {
+            val += w[i * n + j] * x[j];
+        }
+        xout[i] = val;
+    }
+}
+
+float* forward(Transformer* transformer, int token, int pos) {
+
+    // a few convenience variables
+    Config* p = &transformer->config;
+    TransformerWeights* w = &transformer->weights;
+    RunState* s = &transformer->state;
+    float *x = s->x;
+    int dim = p->dim;
+    int kv_dim = (p->dim * p->n_kv_heads) / p->n_heads;
+    int kv_mul = p->n_heads / p->n_kv_heads; // integer multiplier of the kv sharing in multiquery
+    int hidden_dim =  p->hidden_dim;
+    int head_size = dim / p->n_heads;
+
+    // copy the token embedding into x
+    float* content_row = w->token_embedding_table + token * dim;
+    memcpy(x, content_row, dim*sizeof(*x));
+
+    // forward all the layers
+    for(unsigned long long l = 0; l < p->n_layers; l++) {
+
+        // attention rmsnorm
+        rmsnorm(s->xb, x, w->rms_att_weight + l*dim, dim);
+
+        // key and value point to the kv cache
+        int loff = l * p->seq_len * kv_dim; // kv cache layer offset for convenience
+        s->k = s->key_cache + loff + pos * kv_dim;
+        s->v = s->value_cache + loff + pos * kv_dim;
+
+        // qkv matmuls for this position
+        matmul(s->q, s->xb, w->wq + l*dim*dim, dim, dim);
+        matmul(s->k, s->xb, w->wk + l*dim*kv_dim, dim, kv_dim);
+        matmul(s->v, s->xb, w->wv + l*dim*kv_dim, dim, kv_dim);
+
+        // RoPE relative positional encoding: complex-valued rotate q and k in each head
+        for (int i = 0; i < dim; i+=2) {
+            int head_dim = i % head_size;
+            float freq = 1.0f / powf(10000.0f, head_dim / (float)head_size);
+            float val = pos * freq;
+            float fcr = cosf(val);
+            float fci = sinf(val);
+            int rotn = i < kv_dim ? 2 : 1; // how many vectors? 2 = q & k, 1 = q only
+            for (int v = 0; v < rotn; v++) {
+                float* vec = v == 0 ? s->q : s->k; // the vector to rotate (query or key)
+                float v0 = vec[i];
+                float v1 = vec[i+1];
+                vec[i]   = v0 * fcr - v1 * fci;
+                vec[i+1] = v0 * fci + v1 * fcr;
+            }
+        }
+
+        // multihead attention. iterate over all heads
+        int h;
+        for (h = 0; h < p->n_heads; h++) {
+            // get the query vector for this head
+            float* q = s->q + h * head_size;
+            // attention scores for this head
+            float* att = s->att + h * p->seq_len;
+            // iterate over all timesteps, including the current one
+            for (int t = 0; t <= pos; t++) {
+                // get the key vector for this head and at this timestep
+                float* k = s->key_cache + loff + t * kv_dim + (h / kv_mul) * head_size;
+                // calculate the attention score as the dot product of q and k
+                float score = 0.0f;
+                for (int i = 0; i < head_size; i++) {
+                    score += q[i] * k[i];
+                }
+                score /= sqrtf(head_size);
+                // save the score to the attention buffer
+                att[t] = score;
+            }
+
+            // softmax the scores to get attention weights, from 0..pos inclusively
+            softmax(att, pos + 1);
+
+            // weighted sum of the values, store back into xb
+            float* xb = s->xb + h * head_size;
+            memset(xb, 0, head_size * sizeof(float));
+            for (int t = 0; t <= pos; t++) {
+                // get the value vector for this head and at this timestep
+                float* v = s->value_cache + loff + t * kv_dim + (h / kv_mul) * head_size;
+                // get the attention weight for this timestep
+                float a = att[t];
+                // accumulate the weighted value into xb
+                for (int i = 0; i < head_size; i++) {
+                    xb[i] += a * v[i];
+                }
+            }
+        }
+
+        // final matmul to get the output of the attention
+        matmul(s->xb2, s->xb, w->wo + l*dim*dim, dim, dim);
+
+        // residual connection back into x
+        for (int i = 0; i < dim; i++) {
+            x[i] += s->xb2[i];
+        }
+
+        // ffn rmsnorm
+        rmsnorm(s->xb, x, w->rms_ffn_weight + l*dim, dim);
+
+        // Now for FFN in PyTorch we have: self.w2(F.silu(self.w1(x)) * self.w3(x))
+        // first calculate self.w1(x) and self.w3(x)
+        matmul(s->hb, s->xb, w->w1 + l*dim*hidden_dim, dim, hidden_dim);
+        matmul(s->hb2, s->xb, w->w3 + l*dim*hidden_dim, dim, hidden_dim);
+
+        // SwiGLU non-linearity
+        for (int i = 0; i < hidden_dim; i++) {
+            float val = s->hb[i];
+            // silu(x)=x*σ(x), where σ(x) is the logistic sigmoid
+            val *= (1.0f / (1.0f + expf(-val)));
+            // elementwise multiply with w3(x)
+            val *= s->hb2[i];
+            s->hb[i] = val;
+        }
+
+        // final matmul to get the output of the ffn
+        matmul(s->xb, s->hb, w->w2 + l*dim*hidden_dim, hidden_dim, dim);
+
+        // residual connection
+        for (int i = 0; i < dim; i++) {
+            x[i] += s->xb[i];
+        }
+    }
+
+    // final rmsnorm
+    rmsnorm(x, x, w->rms_final_weight, dim);
+
+    // classifier into logits
+    matmul(s->logits, x, w->wcls, p->dim, p->vocab_size);
+    return s->logits;
+}
+
+// ----------------------------------------------------------------------------
+// The Byte Pair Encoding (BPE) Tokenizer that translates strings <-> tokens
+
+typedef struct {
+    char *str;
+    int id;
+} TokenIndex;
+
+typedef struct {
+    char** vocab;
+    float* vocab_scores;
+    TokenIndex *sorted_vocab;
+    int vocab_size;
+    unsigned int max_token_length;
+    unsigned char byte_pieces[512]; // stores all single-byte strings
+} Tokenizer;
+
+int compare_tokens(const void *a, const void *b) {
+    return strcmp(((TokenIndex*)a)->str, ((TokenIndex*)b)->str);
+}
+
+void build_tokenizer(Tokenizer* t, char* tokenizer_path, int vocab_size) {
+    // i should have written the vocab_size into the tokenizer file... sigh
+    t->vocab_size = vocab_size;
+    // malloc space to hold the scores and the strings
+    t->vocab = (char**)malloc(vocab_size * sizeof(char*));
+    t->vocab_scores = (float*)malloc(vocab_size * sizeof(float));
+    t->sorted_vocab = NULL; // initialized lazily
+    for (int i = 0; i < 256; i++) {
+        t->byte_pieces[i * 2] = (unsigned char)i;
+        t->byte_pieces[i * 2 + 1] = '\0';
+    }
+    // read in the file
+    FILE *file = fopen(tokenizer_path, "rb");
+    if (!file) { fprintf(stderr, "couldn't load %s\n", tokenizer_path); exit(EXIT_FAILURE); }
+    if (fread(&t->max_token_length, sizeof(int), 1, file) != 1) { fprintf(stderr, "failed read\n"); exit(EXIT_FAILURE); }
+    int len;
+    for (int i = 0; i < vocab_size; i++) {
+        if (fread(t->vocab_scores + i, sizeof(float), 1, file) != 1) { fprintf(stderr, "failed read\n"); exit(EXIT_FAILURE);}
+        if (fread(&len, sizeof(int), 1, file) != 1) { fprintf(stderr, "failed read\n"); exit(EXIT_FAILURE); }
+        t->vocab[i] = (char *)malloc(len + 1);
+        if (fread(t->vocab[i], len, 1, file) != 1) { fprintf(stderr, "failed read\n"); exit(EXIT_FAILURE); }
+        t->vocab[i][len] = '\0'; // add the string terminating token
+    }
+    fclose(file);
+}
+
+void free_tokenizer(Tokenizer* t) {
+    for (int i = 0; i < t->vocab_size; i++) { free(t->vocab[i]); }
+    free(t->vocab);
+    free(t->vocab_scores);
+    free(t->sorted_vocab);
+}
+
+char* decode(Tokenizer* t, int prev_token, int token) {
+    char *piece = t->vocab[token];
+    // following BOS (1) token, sentencepiece decoder strips any leading whitespace (see PR #89)
+    if (prev_token == 1 && piece[0] == ' ') { piece++; }
+    // careful, some tokens designate raw bytes, and look like e.g. '<0x01>'
+    // parse this and convert and return the actual byte
+    unsigned char byte_val;
+    if (sscanf(piece, "<0x%02hhX>", &byte_val) == 1) {
+        piece = (char*)t->byte_pieces + byte_val * 2;
+    }
+    return piece;
+}
+
+void safe_printf(char *piece) {
+    // piece might be a raw byte token, and we only want to print printable chars or whitespace
+    // because some of the other bytes can be various control codes, backspace, etc.
+    if (piece == NULL) { return; }
+    if (piece[0] == '\0') { return; }
+    if (piece[1] == '\0') {
+        unsigned char byte_val = piece[0];
+        if (!(isprint(byte_val) || isspace(byte_val))) {
+            return; // bad byte, don't print it
+        }
+    }
+    printf("%s", piece);
+}
+
+int str_lookup(char *str, TokenIndex *sorted_vocab, int vocab_size) {
+    // efficiently find the perfect match for str in vocab, return its index or -1 if not found
+    TokenIndex tok = { .str = str }; // acts as the key to search for
+    TokenIndex *res = bsearch(&tok, sorted_vocab, vocab_size, sizeof(TokenIndex), compare_tokens);
+    return res != NULL ? res->id : -1;
+}
+
+void encode(Tokenizer* t, char *text, int8_t bos, int8_t eos, int *tokens, int *n_tokens) {
+    // encode the string text (input) into an upper-bound preallocated tokens[] array
+    // bos != 0 means prepend the BOS token (=1), eos != 0 means append the EOS token (=2)
+    if (text == NULL) { fprintf(stderr, "cannot encode NULL text\n"); exit(EXIT_FAILURE); }
+
+    if (t->sorted_vocab == NULL) {
+        // lazily malloc and sort the vocabulary
+        t->sorted_vocab = malloc(t->vocab_size * sizeof(TokenIndex));
+        for (int i = 0; i < t->vocab_size; i++) {
+            t->sorted_vocab[i].str = t->vocab[i];
+            t->sorted_vocab[i].id = i;
+        }
+        qsort(t->sorted_vocab, t->vocab_size, sizeof(TokenIndex), compare_tokens);
+    }
+
+    // create a temporary buffer that will store merge candidates of always two consecutive tokens
+    // *2 for concat, +1 for null terminator +2 for UTF8 (in case max_token_length is 1)
+    char* str_buffer = malloc((t->max_token_length*2 +1 +2) * sizeof(char));
+    size_t str_len = 0;
+
+    // start at 0 tokens
+    *n_tokens = 0;
+
+    // add optional BOS (=1) token, if desired
+    if (bos) tokens[(*n_tokens)++] = 1;
+
+    // add_dummy_prefix is true by default
+    // so prepend a dummy prefix token to the input string, but only if text != ""
+    // TODO: pretty sure this isn't correct in the general case but I don't have the
+    // energy to read more of the sentencepiece code to figure out what it's doing
+    if (text[0] != '\0') {
+        int dummy_prefix = str_lookup(" ", t->sorted_vocab, t->vocab_size);
+        tokens[(*n_tokens)++] = dummy_prefix;
+    }
+
+    // Okay UTF-8 time. This will get messy. Here is the reference from Wikipedia:
+    // Code point ↔ UTF-8 conversion
+    // First code point	Last code point	Byte 1	Byte 2	Byte 3	Byte 4
+    // U+0000	U+007F	    0xxxxxxx
+    // U+0080	U+07FF	    110xxxxx	10xxxxxx
+    // U+0800	U+FFFF	    1110xxxx	10xxxxxx	10xxxxxx
+    // U+10000	U+10FFFF    11110xxx	10xxxxxx	10xxxxxx	10xxxxxx
+
+    // process the raw (UTF-8) byte sequence of the input string
+    for (char *c = text; *c != '\0'; c++) {
+
+        // reset buffer if the current byte is ASCII or a leading byte
+        // 0xC0 is 11000000, so (*c & 0xC0) keeps the first 2 bits and zeros the rest
+        // 0x80 is 10000000
+        // in UTF-8, all continuation bytes start with "10" in first two bits
+        // so in English this is: "if this byte is not a continuation byte"
+        if ((*c & 0xC0) != 0x80) {
+            // this byte must be either a leading byte (11...) or an ASCII char (0x...)
+            // => reset our location, as we're starting a new UTF-8 codepoint
+            str_len = 0;
+        }
+
+        // append the current byte to the buffer
+        str_buffer[str_len++] = *c; // ++ is post-increment, incremented after this line
+        str_buffer[str_len] = '\0';
+
+        // while the next character is a continuation byte, continue appending
+        // but if there are too many of them, just stop to avoid overruning str_buffer size.
+        if ((*(c+1) & 0xC0) == 0x80 && str_len < 4) {
+            continue;
+        }
+
+        // ok c+1 is not a continuation byte, so we've read in a full codepoint
+        int id = str_lookup(str_buffer, t->sorted_vocab, t->vocab_size);
+
+        if (id != -1) {
+            // we found this codepoint in vocab, add it as a token
+            tokens[(*n_tokens)++] = id;
+        } else {
+            // byte_fallback encoding: just encode each byte as a token
+            // +3 is here because the first 3 vocab elements are <unk>, <s>, </s>
+            // so the individual bytes only start at index 3
+            for (int i=0; i < str_len; i++) {
+                tokens[(*n_tokens)++] = (unsigned char)str_buffer[i] + 3;
+            }
+        }
+        str_len = 0; // protect against a sequence of stray UTF8 continuation bytes
+    }
+
+    // merge the best consecutive pair each iteration, according the scores in vocab_scores
+    while (1) {
+        float best_score = -1e10;
+        int best_id = -1;
+        int best_idx = -1;
+
+        for (int i=0; i < (*n_tokens-1); i++) {
+            // check if we can merge the pair (tokens[i], tokens[i+1])
+            sprintf(str_buffer, "%s%s", t->vocab[tokens[i]], t->vocab[tokens[i+1]]);
+            int id = str_lookup(str_buffer, t->sorted_vocab, t->vocab_size);
+            if (id != -1 && t->vocab_scores[id] > best_score) {
+                // this merge pair exists in vocab! record its score and position
+                best_score = t->vocab_scores[id];
+                best_id = id;
+                best_idx = i;
+            }
+        }
+
+        if (best_idx == -1) {
+            break; // we couldn't find any more pairs to merge, so we're done
+        }
+
+        // merge the consecutive pair (best_idx, best_idx+1) into new token best_id
+        tokens[best_idx] = best_id;
+        // delete token at position best_idx+1, shift the entire sequence back 1
+        for (int i = best_idx+1; i < (*n_tokens-1); i++) {
+            tokens[i] = tokens[i+1];
+        }
+        (*n_tokens)--; // token length decreased
+    }
+
+    // add optional EOS (=2) token, if desired
+    if (eos) tokens[(*n_tokens)++] = 2;
+
+    free(str_buffer);
+}
+
+// ----------------------------------------------------------------------------
+// The Sampler, which takes logits and returns a sampled token
+// sampling can be done in a few ways: greedy argmax, sampling, top-p sampling
+
+typedef struct {
+    float prob;
+    int index;
+} ProbIndex; // struct used when sorting probabilities during top-p sampling
+
+typedef struct {
+    int vocab_size;
+    ProbIndex* probindex; // buffer used in top-p sampling
+    float temperature;
+    float topp;
+    unsigned long long rng_state;
+} Sampler;
+
+int sample_argmax(float* probabilities, int n) {
+    // return the index that has the highest probability
+    int max_i = 0;
+    float max_p = probabilities[0];
+    for (int i = 1; i < n; i++) {
+        if (probabilities[i] > max_p) {
+            max_i = i;
+            max_p = probabilities[i];
+        }
+    }
+    return max_i;
+}
+
+int sample_mult(float* probabilities, int n, float coin) {
+    // sample index from probabilities (they must sum to 1!)
+    // coin is a random number in [0, 1), usually from random_f32()
+    float cdf = 0.0f;
+    for (int i = 0; i < n; i++) {
+        cdf += probabilities[i];
+        if (coin < cdf) {
+            return i;
+        }
+    }
+    return n - 1; // in case of rounding errors
+}
+
+int compare(const void* a, const void* b) {
+    ProbIndex* a_ = (ProbIndex*) a;
+    ProbIndex* b_ = (ProbIndex*) b;
+    if (a_->prob > b_->prob) return -1;
+    if (a_->prob < b_->prob) return 1;
+    return 0;
+}
+
+int sample_topp(float* probabilities, int n, float topp, ProbIndex* probindex, float coin) {
+    // top-p sampling (or "nucleus sampling") samples from the smallest set of
+    // tokens that exceed probability topp. This way we never sample tokens that
+    // have very low probabilities and are less likely to go "off the rails".
+    // coin is a random number in [0, 1), usually from random_f32()
+
+    int n0 = 0;
+    // quicksort indices in descending order of probabilities
+    // values smaller than (1 - topp) / (n - 1) cannot be part of the result
+    // so for efficiency we crop these out as candidates before sorting
+    const float cutoff = (1.0f - topp) / (n - 1);
+    for (int i = 0; i < n; i++) {
+        if (probabilities[i] >= cutoff) {
+            probindex[n0].index = i;
+            probindex[n0].prob = probabilities[i];
+            n0++;
+        }
+    }
+    qsort(probindex, n0, sizeof(ProbIndex), compare);
+
+    // truncate the list where cumulative probability exceeds topp
+    float cumulative_prob = 0.0f;
+    int last_idx = n0 - 1; // in case of rounding errors consider all elements
+    for (int i = 0; i < n0; i++) {
+        cumulative_prob += probindex[i].prob;
+        if (cumulative_prob > topp) {
+            last_idx = i;
+            break; // we've exceeded topp by including last_idx
+        }
+    }
+
+    // sample from the truncated list
+    float r = coin * cumulative_prob;
+    float cdf = 0.0f;
+    for (int i = 0; i <= last_idx; i++) {
+        cdf += probindex[i].prob;
+        if (r < cdf) {
+            return probindex[i].index;
+        }
+    }
+    return probindex[last_idx].index; // in case of rounding errors
+}
+
+void build_sampler(Sampler* sampler, int vocab_size, float temperature, float topp, unsigned long long rng_seed) {
+    sampler->vocab_size = vocab_size;
+    sampler->temperature = temperature;
+    sampler->topp = topp;
+    sampler->rng_state = rng_seed;
+    // buffer only used with nucleus sampling; may not need but it's ~small
+    sampler->probindex = malloc(sampler->vocab_size * sizeof(ProbIndex));
+}
+
+void free_sampler(Sampler* sampler) {
+    free(sampler->probindex);
+}
+
+unsigned int random_u32(unsigned long long *state) {
+    // xorshift rng: https://en.wikipedia.org/wiki/Xorshift#xorshift.2A
+    *state ^= *state >> 12;
+    *state ^= *state << 25;
+    *state ^= *state >> 27;
+    return (*state * 0x2545F4914F6CDD1Dull) >> 32;
+}
+float random_f32(unsigned long long *state) { // random float32 in [0,1)
+    return (random_u32(state) >> 8) / 16777216.0f;
+}
+
+int sample(Sampler* sampler, float* logits) {
+    // sample the token given the logits and some hyperparameters
+    int next;
+    if (sampler->temperature == 0.0f) {
+        // greedy argmax sampling: take the token with the highest probability
+        next = sample_argmax(logits, sampler->vocab_size);
+    } else {
+        // apply the temperature to the logits
+        for (int q=0; q<sampler->vocab_size; q++) { logits[q] /= sampler->temperature; }
+        // apply softmax to the logits to get the probabilities for next token
+        softmax(logits, sampler->vocab_size);
+        // flip a (float) coin (this is our source of entropy for sampling)
+        float coin = random_f32(&sampler->rng_state);
+        // we sample from this distribution to get the next token
+        if (sampler->topp <= 0 || sampler->topp >= 1) {
+            // simply sample from the predicted probability distribution
+            next = sample_mult(logits, sampler->vocab_size, coin);
+        } else {
+            // top-p (nucleus) sampling, clamping the least likely tokens to zero
+            next = sample_topp(logits, sampler->vocab_size, sampler->topp, sampler->probindex, coin);
+        }
+    }
+    return next;
+}
+
+// ----------------------------------------------------------------------------
+// utilities: time
+
+long time_in_ms() {
+    // return time in milliseconds, for benchmarking the model speed
+    struct timespec time;
+    clock_gettime(CLOCK_REALTIME, &time);
+    return time.tv_sec * 1000 + time.tv_nsec / 1000000;
+}
+
+// ----------------------------------------------------------------------------
+// generation loop
+
+void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, char *prompt, int steps) {
+    char *empty_prompt = "";
+    if (prompt == NULL) { prompt = empty_prompt; }
+
+    // encode the (string) prompt into tokens sequence
+    int num_prompt_tokens = 0;
+    int* prompt_tokens = (int*)malloc((strlen(prompt)+3) * sizeof(int)); // +3 for '\0', ?BOS, ?EOS
+    encode(tokenizer, prompt, 1, 0, prompt_tokens, &num_prompt_tokens);
+    if (num_prompt_tokens < 1) {
+        fprintf(stderr, "something is wrong, expected at least 1 prompt token\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // start the main loop
+    long start = 0;  // used to time our code, only initialized after first iteration
+    int next;        // will store the next token in the sequence
+    int token = prompt_tokens[0]; // kick off with the first token in the prompt
+    int pos = 0;     // position in the sequence
+    while (pos < steps) {
+
+        // forward the transformer to get logits for the next token
+        float* logits = forward(transformer, token, pos);
+
+        // advance the state machine
+        if (pos < num_prompt_tokens - 1) {
+            // if we are still processing the input prompt, force the next prompt token
+            next = prompt_tokens[pos + 1];
+        } else {
+            // otherwise sample the next token from the logits
+            next = sample(sampler, logits);
+        }
+        pos++;
+
+        // data-dependent terminating condition: the BOS (=1) token delimits sequences
+        if (next == 1) { break; }
+
+        // print the token as string, decode it with the Tokenizer object
+        char* piece = decode(tokenizer, token, next);
+        safe_printf(piece); // same as printf("%s", piece), but skips "unsafe" bytes
+        fflush(stdout);
+        token = next;
+
+        // init the timer here because the first iteration can be slower
+        if (start == 0) { start = time_in_ms(); }
+    }
+    printf("\n");
+
+    // report achieved tok/s (pos-1 because the timer starts after first iteration)
+    if (pos > 1) {
+        long end = time_in_ms();
+        fprintf(stderr, "achieved tok/s: %f\n", (pos-1) / (double)(end-start)*1000);
+    }
+
+    free(prompt_tokens);
+}
+
+void read_stdin(const char* guide, char* buffer, size_t bufsize) {
+    // read a line from stdin, up to but not including \n
+    printf("%s", guide);
+    if (fgets(buffer, bufsize, stdin) != NULL) {
+        size_t len = strlen(buffer);
+        if (len > 0 && buffer[len - 1] == '\n') {
+            buffer[len - 1] = '\0'; // strip newline
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// chat loop
+// I manually inspected the tokens for a few chat conversations compared to
+// python reference and that seemed ok, but this was not thoroughly tested and
+// is not safely implemented, it's more a proof of concept atm.
+
+void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
+          char *cli_user_prompt, char *cli_system_prompt, int steps) {
+
+    // buffers for reading the system prompt and user prompt from stdin
+    // you'll notice they are soomewhat haphazardly and unsafely set atm
+    char system_prompt[512];
+    char user_prompt[512];
+    char rendered_prompt[1152];
+    int num_prompt_tokens = 0;
+    int* prompt_tokens = (int*)malloc(1152 * sizeof(int));
+    int user_idx;
+
+    // start the main loop
+    int8_t user_turn = 1; // user starts
+    int next;        // will store the next token in the sequence
+    int token;       // stores the current token to feed into the transformer
+    int prev_token;
+    int pos = 0;     // position in the sequence
+    while (pos < steps) {
+
+        // when it is the user's turn to contribute tokens to the dialog...
+        if (user_turn) {
+            // get the (optional) system prompt at position 0
+            if (pos == 0) {
+                // at position 0, the user can also contribute a system prompt
+                if (cli_system_prompt == NULL) {
+                    // system prompt was not passed in, attempt to get it from stdin
+                    read_stdin("Enter system prompt (optional): ", system_prompt, sizeof(system_prompt));
+                } else {
+                    // system prompt was passed in, use it
+                    strcpy(system_prompt, cli_system_prompt);
+                }
+            }
+            // get the user prompt
+            if (pos == 0 && cli_user_prompt != NULL) {
+                // user prompt for position 0 was passed in, use it
+                strcpy(user_prompt, cli_user_prompt);
+            } else {
+                // otherwise get user prompt from stdin
+                read_stdin("User: ", user_prompt, sizeof(user_prompt));
+            }
+            // render user/system prompts into the Llama 2 Chat schema
+            if (pos == 0 && system_prompt[0] != '\0') {
+                char system_template[] = "[INST] <<SYS>>\n%s\n<</SYS>>\n\n%s [/INST]";
+                sprintf(rendered_prompt, system_template, system_prompt, user_prompt);
+            } else {
+                char user_template[] = "[INST] %s [/INST]";
+                sprintf(rendered_prompt, user_template, user_prompt);
+            }
+            // encode the rendered prompt into tokens
+            encode(tokenizer, rendered_prompt, 1, 0, prompt_tokens, &num_prompt_tokens);
+            user_idx = 0; // reset the user index
+            user_turn = 0;
+            printf("Assistant: ");
+        }
+
+        // determine the token to pass into the transformer next
+        if (user_idx < num_prompt_tokens) {
+            // if we are still processing the input prompt, force the next prompt token
+            token = prompt_tokens[user_idx++];
+        } else {
+            // otherwise use the next token sampled from previous turn
+            token = next;
+        }
+        // EOS (=2) token ends the Assistant turn
+        if (token == 2) { user_turn = 1; }
+
+        // forward the transformer to get logits for the next token
+        float* logits = forward(transformer, token, pos);
+        next = sample(sampler, logits);
+        pos++;
+
+        if (user_idx >= num_prompt_tokens && next != 2) {
+            // the Assistant is responding, so print its output
+            char* piece = decode(tokenizer, token, next);
+            safe_printf(piece); // same as printf("%s", piece), but skips "unsafe" bytes
+            fflush(stdout);
+        }
+        if (next == 2) { printf("\n"); }
+    }
+    printf("\n");
+    free(prompt_tokens);
+}
+
+
+// ----------------------------------------------------------------------------
+// CLI, include only if not testing
+#ifndef TESTING
+
+void error_usage() {
+    fprintf(stderr, "Usage:   run <checkpoint> [options]\n");
+    fprintf(stderr, "Example: run model.bin -n 256 -i \"Once upon a time\"\n");
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "  -t <float>  temperature in [0,inf], default 1.0\n");
+    fprintf(stderr, "  -p <float>  p value in top-p (nucleus) sampling in [0,1] default 0.9\n");
+    fprintf(stderr, "  -s <int>    random seed, default time(NULL)\n");
+    fprintf(stderr, "  -n <int>    number of steps to run for, default 256. 0 = max_seq_len\n");
+    fprintf(stderr, "  -i <string> input prompt\n");
+    fprintf(stderr, "  -z <string> optional path to custom tokenizer\n");
+    fprintf(stderr, "  -m <string> mode: generate|chat, default: generate\n");
+    fprintf(stderr, "  -y <string> (optional) system prompt in chat mode\n");
+    exit(EXIT_FAILURE);
+}
+
+int main(int argc, char *argv[]) {
+
+    // default parameters
+    char *checkpoint_path = NULL;  // e.g. out/model.bin
+    char *tokenizer_path = "tokenizer.bin";
+    float temperature = 1.0f;   // 0.0 = greedy deterministic. 1.0 = original. don't set higher
+    float topp = 0.9f;          // top-p in nucleus sampling. 1.0 = off. 0.9 works well, but slower
+    int steps = 256;            // number of steps to run for
+    char *prompt = NULL;        // prompt string
+    unsigned long long rng_seed = 0; // seed rng with time by default
+    char *mode = "generate";    // generate|chat
+    char *system_prompt = NULL; // the (optional) system prompt to use in chat mode
+
+    // poor man's C argparse so we can override the defaults above from the command line
+    if (argc >= 2) { checkpoint_path = argv[1]; } else { error_usage(); }
+    for (int i = 2; i < argc; i+=2) {
+        // do some basic validation
+        if (i + 1 >= argc) { error_usage(); } // must have arg after flag
+        if (argv[i][0] != '-') { error_usage(); } // must start with dash
+        if (strlen(argv[i]) != 2) { error_usage(); } // must be -x (one dash, one letter)
+        // read in the args
+        if (argv[i][1] == 't') { temperature = atof(argv[i + 1]); }
+        else if (argv[i][1] == 'p') { topp = atof(argv[i + 1]); }
+        else if (argv[i][1] == 's') { rng_seed = atoi(argv[i + 1]); }
+        else if (argv[i][1] == 'n') { steps = atoi(argv[i + 1]); }
+        else if (argv[i][1] == 'i') { prompt = argv[i + 1]; }
+        else if (argv[i][1] == 'z') { tokenizer_path = argv[i + 1]; }
+        else if (argv[i][1] == 'm') { mode = argv[i + 1]; }
+        else if (argv[i][1] == 'y') { system_prompt = argv[i + 1]; }
+        else { error_usage(); }
+    }
+
+    // parameter validation/overrides
+    if (rng_seed <= 0) rng_seed = (unsigned int)time(NULL);
+    if (temperature < 0.0) temperature = 0.0;
+    if (topp < 0.0 || 1.0 < topp) topp = 0.9;
+    if (steps < 0) steps = 0;
+
+    // build the Transformer via the model .bin file
+    Transformer transformer;
+    build_transformer(&transformer, checkpoint_path);
+    if (steps == 0 || steps > transformer.config.seq_len) steps = transformer.config.seq_len; // override to ~max length
+
+    // build the Tokenizer via the tokenizer .bin file
+    Tokenizer tokenizer;
+    build_tokenizer(&tokenizer, tokenizer_path, transformer.config.vocab_size);
+
+    // build the Sampler
+    Sampler sampler;
+    build_sampler(&sampler, transformer.config.vocab_size, temperature, topp, rng_seed);
+
+    // run!
+    if (strcmp(mode, "generate") == 0) {
+        generate(&transformer, &tokenizer, &sampler, prompt, steps);
+    } else if (strcmp(mode, "chat") == 0) {
+        chat(&transformer, &tokenizer, &sampler, prompt, system_prompt, steps);
+    } else {
+        fprintf(stderr, "unknown mode: %s\n", mode);
+        error_usage();
+    }
+
+    // memory and file handles cleanup
+    free_sampler(&sampler);
+    free_tokenizer(&tokenizer);
+    free_transformer(&transformer);
+    return 0;
+}
+#endif
+
+========== 2. Output del job ==========
+[fbellina2@wilson es03]$ cat es03_baseline.61832.out
+Job: 61832; nodo: wnode01
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           46 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  32
+On-line CPU(s) list:                     0-31
+Vendor ID:                               GenuineIntel
+Model name:                              Intel(R) Xeon(R) CPU E5-2650 0 @ 2.00GHz
+CPU family:                              6
+Model:                                   45
+Thread(s) per core:                      2
+Core(s) per socket:                      8
+Socket(s):                               2
+Stepping:                                7
+CPU(s) scaling MHz:                      97%
+CPU max MHz:                             2800.0000
+CPU min MHz:                             1200.0000
+BogoMIPS:                                3999.87
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic popcnt tsc_deadline_timer aes xsave avx lahf_lm epb pti ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid xsaveopt dtherm ida arat pln pts vnmi flush_l1d
+Virtualization:                          VT-x
+L1d cache:                               512 KiB (16 instances)
+L1i cache:                               512 KiB (16 instances)
+L2 cache:                                4 MiB (16 instances)
+L3 cache:                                40 MiB (2 instances)
+NUMA node(s):                            2
+NUMA node0 CPU(s):                       0-7,16-23
+NUMA node1 CPU(s):                       8-15,24-31
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             KVM: Mitigation: Split huge pages
+Vulnerability L1tf:                      Mitigation; PTE Inversion; VMX conditional cache flushes, SMT vulnerable
+Vulnerability Mds:                       Vulnerable: Clear CPU buffers attempted, no microcode; SMT vulnerable
+Vulnerability Meltdown:                  Mitigation; PTI
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Old microcode:             Vulnerable
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP conditional; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Mitigation; IBPB before exit to userspace
+
+Currently Loaded Modules:
+  1) GCCcore/13.2.0   2) zlib/1.2.13   3) binutils/2.40   4) GCC/13.2.0
+
+ 
+
+/usr/bin/perf
+perf version 5.14.0-687.66.2.el9_8.x86_64
+=== 1. Baseline seriale: 256 token, -t 0, prompt "Once upon a time"
+--- stories15M run 1
+achieved tok/s: 58.127301
+--- stories15M run 2
+achieved tok/s: 58.682953
+--- stories15M run 3
+achieved tok/s: 58.682953
+stories15M: testo identico nelle 3 ripetizioni
+--- stories42M run 1
+achieved tok/s: 20.677604
+--- stories42M run 2
+achieved tok/s: 20.774407
+--- stories42M run 3
+achieved tok/s: 20.681620
+stories42M: testo identico nelle 3 ripetizioni
+--- stories110M run 1
+achieved tok/s: 7.809979
+--- stories110M run 2
+achieved tok/s: 7.816033
+--- stories110M run 3
+achieved tok/s: 7.813004
+stories110M: testo identico nelle 3 ripetizioni
+=== 2. Profilo con gprof
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 99.48      3.79     3.79      222     0.02     0.02  forward
+  0.52      3.81     0.02        1     0.02     3.81  generate
+  0.00      3.81     0.00        1     0.00     0.00  build_tokenizer
+  0.00      3.81     0.00        1     0.00     0.00  build_transformer
+  0.00      3.81     0.00        1     0.00     0.00  encode
+  0.00      3.81     0.00        1     0.00     0.00  free_tokenizer
+  0.00      3.81     0.00        1     0.00     0.00  free_transformer
+  0.00      3.81     0.00        1     0.00     0.00  malloc_run_state
+  0.00      3.81     0.00        1     0.00     0.00  memory_map_weights
+  0.00      3.81     0.00        1     0.00     0.00  read_checkpoint
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 99.81     30.83    30.83      243     0.13     0.13  forward
+  0.19     30.89     0.06        1     0.06    30.89  generate
+  0.00     30.89     0.00        1     0.00     0.00  build_tokenizer
+  0.00     30.89     0.00        1     0.00     0.00  build_transformer
+  0.00     30.89     0.00        1     0.00     0.00  encode
+  0.00     30.89     0.00        1     0.00     0.00  free_tokenizer
+  0.00     30.89     0.00        1     0.00     0.00  free_transformer
+  0.00     30.89     0.00        1     0.00     0.00  malloc_run_state
+  0.00     30.89     0.00        1     0.00     0.00  memory_map_weights
+  0.00     30.89     0.00        1     0.00     0.00  read_checkpoint
+=== 2b. Profilo con perf (110M)
+    90.88%  [.] forward                        -      -            
+     8.40%  [.] forward                        -      -            
+     0.19%  [k] 0xffffffffb240115e             -      -            
+     0.05%  [.] generate                       -      -            
+     0.04%  [.] 0x000000000003a5ae             -      -            
+     0.02%  [.] 0x00000000000366e9             -      -            
+     0.02%  [.] 0x0000000000036716             -      -            
+     0.02%  [.] 0x000000000003671a             -      -            
+     0.02%  [.] 0x000000000003668c             -      -            
+     0.02%  [.] 0x0000000000036712             -      -            
+     0.01%  [.] expf@plt                       -      -            
+     0.01%  [.] 0x0000000000075fb0             -      -            
+     0.01%  [k] 0xffffffffb24001c4             -      -            
+     0.01%  [.] __strcmp_sse42                 -      -            
+     0.01%  [.] 0x000000000003671e             -      -            
+     0.01%  [.] msort_with_tmp.part.0          -      -            
+     0.01%  [.] 0x00000000000366b3             -      -            
+     0.01%  [.] 0x000000000003a3dc             -      -            
+     0.01%  [.] 0x000000000003a3d8             -      -            
+     0.01%  [.] 0x00000000000366c7             -      -            
+=== 3. Banda di memoria (triad)
+triad: thread =  1  tempo migliore = 0.0759 s  banda = 12.65 GB/s
+triad: thread =  2  tempo migliore = 0.0365 s  banda = 26.28 GB/s
+triad: thread =  4  tempo migliore = 0.0215 s  banda = 44.68 GB/s
+triad: thread =  8  tempo migliore = 0.0185 s  banda = 51.88 GB/s
+triad: thread = 16  tempo migliore = 0.0187 s  banda = 51.40 GB/s
+[fbellina2@wilson es03]$ cat es03_baseline.61832.err
+
+========== 3. Testi generati (prima ripetizione) ==========
+[fbellina2@wilson es03]$ cat out_110M_r1.txt
+Once upon a time, there was a little girl named Lily. She loved to play outside in the sunshine. One day, she saw a big, red apple on a tree. She wanted to eat it, but it was too high up.
+Lily asked her friend, a little bird, "Can you help me get the apple?"
+The bird said, "Sure, I can fly up and get it for you."
+The bird flew up to the apple and pecked it off the tree. Lily was so happy and took a big bite. But then, she saw a bug on the apple. She didn't like bugs, so she threw the apple away.
+Later that day, Lily's mom asked her to help with the laundry. Lily saw a shirt that was too big for her. She asked her mom, "Can you make it fit me?"
+Her mom said, "Yes, I can make it fit you."
+Lily was happy that her shirt would fit her. She learned that sometimes things don't fit, but there is always a way to make them fit.
+[fbellina2@wilson es03]$ cat out_15M_r1.txt
+Once upon a time, there was a little girl named Lily. She loved to play outside in the sunshine. One day, she saw a big, red ball in the sky. It was the sun! She thought it was so pretty.
+Lily wanted to play with the ball, but it was too high up in the sky. She tried to jump and reach it, but she couldn't. Then, she had an idea. She would use a stick to knock the ball down.
+Lily found a stick and tried to hit the ball. But the stick was too short. She tried again and again, but she couldn't reach it. She felt sad.
+Suddenly, a kind man came by and saw Lily. He asked her what was wrong. Lily told him about the ball. The man smiled and said, "I have a useful idea!" He took out a long stick and used it to knock the ball down. Lily was so happy! She thanked the man and they played together in the sunshine.
+[fbellina2@wilson es03]$ cat out_42M_r1.txt
+Once upon a time, there was a little girl named Lily. She loved to play outside in the sunshine. One day, she saw a big, yellow flower in the garden. It was a sunflower! Lily thought it was the most beautiful flower she had ever seen.
+Lily's mom came outside and saw the sunflower too. "Wow, that's a big flower!" she said. "Let's pick it and put it in a vase." Lily was so excited to have the sunflower in her room.
+Later that day, Lily's friend came over to play. "Look at my sunflower!" Lily said, showing her friend the flower. "It's so pretty!" her friend said. "I wish I could have a sunflower like that." Lily smiled and said, "Maybe we can plant some seeds and grow our own sunflowers!" Her friend smiled and said, "That's a great idea!"
+
+========== 4. Riepilogo tok/s ==========
+[fbellina2@wilson es03]$ grep -H tok/s tok_110M_r1.txt tok_110M_r2.txt tok_110M_r3.txt tok_15M_r1.txt tok_15M_r2.txt tok_15M_r3.txt tok_42M_r1.txt tok_42M_r2.txt tok_42M_r3.txt
+tok_110M_r1.txt:achieved tok/s: 7.809979
+tok_110M_r2.txt:achieved tok/s: 7.816033
+tok_110M_r3.txt:achieved tok/s: 7.813004
+tok_15M_r1.txt:achieved tok/s: 58.127301
+tok_15M_r2.txt:achieved tok/s: 58.682953
+tok_15M_r3.txt:achieved tok/s: 58.682953
+tok_42M_r1.txt:achieved tok/s: 20.677604
+tok_42M_r2.txt:achieved tok/s: 20.774407
+tok_42M_r3.txt:achieved tok/s: 20.681620
+
+========== 5. Job OpenMP (job 62659) ==========
+[fbellina2@wilson es03]$ sacct -j 62659 --format=JobID,JobName%20,Partition,NodeList%16,NTasks,AllocCPUS,ReqMem,Timelimit,Elapsed,State,ExitCode
+JobID                     JobName  Partition         NodeList   NTasks  AllocCPUS     ReqMem  Timelimit    Elapsed      State ExitCode 
+------------ -------------------- ---------- ---------------- -------- ---------- ---------- ---------- ---------- ---------- -------- 
+62659                    es03_omp     wilson          wnode04                  32     62500M   01:00:00   00:11:07     FAILED      1:0 
+62659.batch                 batch                     wnode04        1         32                         00:11:07     FAILED      1:0 
+62659.0           run_noinline_pg                     wnode04        1          2                         00:00:04  COMPLETED      0:0 
+62659.1           run_noinline_pg                     wnode04        1          2                         00:00:35  COMPLETED      0:0 
+62659.2                   run_omp                     wnode04        1         32                         00:00:04  COMPLETED      0:0 
+62659.3                   run_omp                     wnode04        1         32                         00:00:04  COMPLETED      0:0 
+62659.4                   run_omp                     wnode04        1         32                         00:00:05  COMPLETED      0:0 
+62659.5                   run_omp                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.6                   run_omp                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.7                   run_omp                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.8                   run_omp                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.9                   run_omp                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.10                  run_omp                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.11                  run_omp                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.12                  run_omp                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.13                  run_omp                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.14                  run_omp                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.15                  run_omp                     wnode04        1         32                         00:00:00  COMPLETED      0:0 
+62659.16                  run_omp                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.17               run_omp_mm                     wnode04        1         32                         00:00:04  COMPLETED      0:0 
+62659.18               run_omp_mm                     wnode04        1         32                         00:00:04  COMPLETED      0:0 
+62659.19               run_omp_mm                     wnode04        1         32                         00:00:04  COMPLETED      0:0 
+62659.20               run_omp_mm                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.21               run_omp_mm                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.22               run_omp_mm                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.23               run_omp_mm                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.24               run_omp_mm                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.25               run_omp_mm                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.26               run_omp_mm                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.27               run_omp_mm                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.28               run_omp_mm                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.29               run_omp_mm                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.30               run_omp_mm                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.31               run_omp_mm                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.32                  run_omp                     wnode04        1         32                         00:00:12  COMPLETED      0:0 
+62659.33                  run_omp                     wnode04        1         32                         00:00:10  COMPLETED      0:0 
+62659.34                  run_omp                     wnode04        1         32                         00:00:11  COMPLETED      0:0 
+62659.35                  run_omp                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.36                  run_omp                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.37                  run_omp                     wnode04        1         32                         00:00:05  COMPLETED      0:0 
+62659.38                  run_omp                     wnode04        1         32                         00:00:04  COMPLETED      0:0 
+62659.39                  run_omp                     wnode04        1         32                         00:00:03  COMPLETED      0:0 
+62659.40                  run_omp                     wnode04        1         32                         00:00:03  COMPLETED      0:0 
+62659.41                  run_omp                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.42                  run_omp                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.43                  run_omp                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.44                  run_omp                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.45                  run_omp                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.46                  run_omp                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.47               run_omp_mm                     wnode04        1         32                         00:00:11  COMPLETED      0:0 
+62659.48               run_omp_mm                     wnode04        1         32                         00:00:10  COMPLETED      0:0 
+62659.49               run_omp_mm                     wnode04        1         32                         00:00:11  COMPLETED      0:0 
+62659.50               run_omp_mm                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.51               run_omp_mm                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.52               run_omp_mm                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.53               run_omp_mm                     wnode04        1         32                         00:00:03  COMPLETED      0:0 
+62659.54               run_omp_mm                     wnode04        1         32                         00:00:03  COMPLETED      0:0 
+62659.55               run_omp_mm                     wnode04        1         32                         00:00:03  COMPLETED      0:0 
+62659.56               run_omp_mm                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.57               run_omp_mm                     wnode04        1         32                         00:00:03  COMPLETED      0:0 
+62659.58               run_omp_mm                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.59               run_omp_mm                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.60               run_omp_mm                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.61               run_omp_mm                     wnode04        1         32                         00:00:02  COMPLETED      0:0 
+62659.62                  run_omp                     wnode04        1         32                         00:00:32  COMPLETED      0:0 
+62659.63                  run_omp                     wnode04        1         32                         00:00:32  COMPLETED      0:0 
+62659.64                  run_omp                     wnode04        1         32                         00:00:32  COMPLETED      0:0 
+62659.65                  run_omp                     wnode04        1         32                         00:00:16  COMPLETED      0:0 
+62659.66                  run_omp                     wnode04        1         32                         00:00:16  COMPLETED      0:0 
+62659.67                  run_omp                     wnode04        1         32                         00:00:16  COMPLETED      0:0 
+62659.68                  run_omp                     wnode04        1         32                         00:00:09  COMPLETED      0:0 
+62659.69                  run_omp                     wnode04        1         32                         00:00:09  COMPLETED      0:0 
+62659.70                  run_omp                     wnode04        1         32                         00:00:09  COMPLETED      0:0 
+62659.71                  run_omp                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.72                  run_omp                     wnode04        1         32                         00:00:05  COMPLETED      0:0 
+62659.73                  run_omp                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.74                  run_omp                     wnode04        1         32                         00:00:04  COMPLETED      0:0 
+62659.75                  run_omp                     wnode04        1         32                         00:00:05  COMPLETED      0:0 
+62659.76                  run_omp                     wnode04        1         32                         00:00:04  COMPLETED      0:0 
+62659.77               run_omp_mm                     wnode04        1         32                         00:00:32  COMPLETED      0:0 
+62659.78               run_omp_mm                     wnode04        1         32                         00:00:32  COMPLETED      0:0 
+62659.79               run_omp_mm                     wnode04        1         32                         00:00:32  COMPLETED      0:0 
+62659.80               run_omp_mm                     wnode04        1         32                         00:00:17  COMPLETED      0:0 
+62659.81               run_omp_mm                     wnode04        1         32                         00:00:17  COMPLETED      0:0 
+62659.82               run_omp_mm                     wnode04        1         32                         00:00:17  COMPLETED      0:0 
+62659.83               run_omp_mm                     wnode04        1         32                         00:00:10  COMPLETED      0:0 
+62659.84               run_omp_mm                     wnode04        1         32                         00:00:09  COMPLETED      0:0 
+62659.85               run_omp_mm                     wnode04        1         32                         00:00:10  COMPLETED      0:0 
+62659.86               run_omp_mm                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.87               run_omp_mm                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.88               run_omp_mm                     wnode04        1         32                         00:00:06  COMPLETED      0:0 
+62659.89               run_omp_mm                     wnode04        1         32                         00:00:05  COMPLETED      0:0 
+62659.90               run_omp_mm                     wnode04        1         32                         00:00:05  COMPLETED      0:0 
+62659.91               run_omp_mm                     wnode04        1         32                         00:00:05  COMPLETED      0:0 
+62659.92                  run_omp                     wnode04        1         32                         00:00:09  COMPLETED      0:0 
+62659.93                    triad                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+62659.94                  run_omp                     wnode04        1         32                         00:00:05  COMPLETED      0:0 
+62659.95                    triad                     wnode04        1         32                         00:00:01  COMPLETED      0:0 
+[fbellina2@wilson es03]$ sha256sum run_omp.c run_omp_mm.c config.c omp_job.sh
+1876f69f79472ed6e67b83bb93985e5f128857909396b2219cb78233b6ceb780  run_omp.c
+0aedec5b7d94bb42d2a95c79cbed6ffe569bf9a5ee8734d523b00b6525040833  run_omp_mm.c
+ce8d82ae153d7be7d972dc17768d29ae3432b0908c7c8b0e72853ff2e2ac8312  config.c
+6a03523d24510ed6bba1fb94f1a284412a19ce5a26f0f5f11ca80bb6f464dc6d  omp_job.sh
+[fbellina2@wilson es03]$ diff run.c run_omp.c
+1a2,4
+> /* Esercizio 3 (HPC4AI): versione OpenMP.
+>    Differenze da run.c del corso: #pragma omp in matmul e nel ciclo sulle teste
+>    dell'attenzione. */
+219a223,225
+>     // OpenMP: ogni thread calcola righe diverse di xout. Ogni prodotto scalare resta
+>     // sommato da un solo thread nello stesso ordine, quindi il risultato è identico
+>     // bit per bit a quello seriale.
+220a227
+>     #pragma omp parallel for private(i)
+280a288,290
+>         // OpenMP: le teste sono indipendenti (ognuna usa la sua parte di s->att e di
+>         // s->xb), quindi ogni thread ne calcola alcune, ciascuna nello stesso ordine
+>         // del seriale.
+281a292
+>         #pragma omp parallel for private(h)
+[fbellina2@wilson es03]$ cat es03_omp.62659.out
+Job: 62659; nodo: wnode04
+gcc (GCC) 13.2.0
+=== 0. Configurazione dei modelli
+/srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories15M.bin: dim=288 hidden_dim=768 n_layers=6 n_heads=6 n_kv_heads=6 vocab_size=32000 seq_len=256 bytes=60816028
+/srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories42M.bin: dim=512 hidden_dim=1376 n_layers=8 n_heads=8 n_kv_heads=8 vocab_size=32000 seq_len=1024 bytes=167020572
+/srv/data/wilson/project/hpc4ai/exercises/tiny_stories/stories110M.bin: dim=768 hidden_dim=2048 n_layers=12 n_heads=12 n_kv_heads=12 vocab_size=32000 seq_len=1024 bytes=438381596
+=== 1. Profilo seriale senza inlining (gprof, -O3 -fno-inline)
+--- stories15M
+achieved tok/s: 58.005249
+testo identico al seriale
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 96.85      3.69     3.69     9546     0.00     0.00  matmul
+  1.57      3.75     0.06      222     0.00     0.02  forward
+  0.52      3.77     0.02     7992     0.00     0.00  softmax
+  0.52      3.79     0.02      218     0.00     0.00  sample_argmax
+  0.26      3.80     0.01     2886     0.00     0.00  rmsnorm
+  0.26      3.81     0.01                             _init
+  0.00      3.81     0.00      221     0.00     0.00  decode
+  0.00      3.81     0.00      221     0.00     0.00  safe_printf
+  0.00      3.81     0.00      218     0.00     0.00  sample
+--- stories110M
+achieved tok/s: 7.790368
+testo identico al seriale
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 97.61     30.26    30.26    20655     0.00     0.00  matmul
+  2.26     30.96     0.70      243     0.00     0.13  forward
+  0.06     30.98     0.02     6075     0.00     0.00  rmsnorm
+  0.03     30.99     0.01      239     0.00     0.00  sample_argmax
+  0.03     31.00     0.01                             _init
+  0.00     31.00     0.00    34992     0.00     0.00  softmax
+  0.00     31.00     0.00      242     0.00     0.00  decode
+  0.00     31.00     0.00      242     0.00     0.00  safe_printf
+  0.00     31.00     0.00      239     0.00     0.00  sample
+=== 2. Scaling e validazione (3 ripetizioni, OMP_PLACES=cores)
+programma   model   T  r bind          tok/s testo
+run_omp     15M     1  1 spread    56.406330 identico
+run_omp     15M     1  2 spread    56.176919 identico
+run_omp     15M     1  3 spread    56.579621 identico
+run_omp     15M     2  1 spread   105.188006 identico
+run_omp     15M     2  2 spread   105.038023 identico
+run_omp     15M     2  3 spread   104.988124 identico
+run_omp     15M     4  1 spread   193.013100 identico
+run_omp     15M     4  2 spread   192.844677 identico
+run_omp     15M     4  3 spread   192.844677 identico
+run_omp     15M     8  1 spread   289.267016 identico
+run_omp     15M     8  2 spread   285.529716 identico
+run_omp     15M     8  3 spread   288.135593 identico
+run_omp     15M    16  1 spread   299.864315 identico
+run_omp     15M    16  2 spread   305.248619 identico
+run_omp     15M    16  3 spread   307.371349 identico
+run_omp_mm  15M     1  1 spread    56.277056 identico
+run_omp_mm  15M     1  2 spread    56.248409 identico
+run_omp_mm  15M     1  3 spread    56.608607 identico
+run_omp_mm  15M     2  1 spread   104.196134 identico
+run_omp_mm  15M     2  2 spread   104.048964 identico
+run_omp_mm  15M     2  3 spread   104.097975 identico
+run_omp_mm  15M     4  1 spread   186.340641 identico
+run_omp_mm  15M     4  2 spread   186.655405 identico
+run_omp_mm  15M     4  3 spread   186.340641 identico
+run_omp_mm  15M     8  1 spread   283.333333 identico
+run_omp_mm  15M     8  2 spread   282.247765 identico
+run_omp_mm  15M     8  3 spread   284.793814 identico
+run_omp_mm  15M    16  1 spread   290.026247 identico
+run_omp_mm  15M    16  2 spread   296.246649 identico
+run_omp_mm  15M    16  3 spread   290.789474 identico
+run_omp     42M     1  1 spread    20.202978 identico
+run_omp     42M     1  2 spread    20.247148 identico
+run_omp     42M     1  3 spread    20.235607 identico
+run_omp     42M     2  1 spread    38.035714 identico
+run_omp     42M     2  2 spread    37.954383 identico
+run_omp     42M     2  3 spread    38.028923 identico
+run_omp     42M     4  1 spread    72.130037 identico
+run_omp     42M     4  2 spread    71.886601 identico
+run_omp     42M     4  3 spread    71.959459 identico
+run_omp     42M     8  1 spread   112.817797 identico
+run_omp     42M     8  2 spread   112.401055 identico
+run_omp     42M     8  3 spread   111.928534 identico
+run_omp     42M    16  1 spread   135.238095 identico
+run_omp     42M    16  2 spread   135.152284 identico
+run_omp     42M    16  3 spread   135.152284 identico
+run_omp_mm  42M     1  1 spread    20.308924 identico
+run_omp_mm  42M     1  2 spread    20.214482 identico
+run_omp_mm  42M     1  3 spread    20.204895 identico
+run_omp_mm  42M     2  1 spread    37.639159 identico
+run_omp_mm  42M     2  2 spread    37.566138 identico
+run_omp_mm  42M     2  3 spread    37.645811 identico
+run_omp_mm  42M     4  1 spread    69.562378 identico
+run_omp_mm  42M     4  2 spread    69.630598 identico
+run_omp_mm  42M     4  3 spread    69.313375 identico
+run_omp_mm  42M     8  1 spread   108.012170 identico
+run_omp_mm  42M     8  2 spread   106.981416 identico
+run_omp_mm  42M     8  3 spread   108.012170 identico
+run_omp_mm  42M    16  1 spread   128.623188 identico
+run_omp_mm  42M    16  2 spread   127.927928 identico
+run_omp_mm  42M    16  3 spread   127.012522 identico
+run_omp     110M    1  1 spread     7.658713 identico
+run_omp     110M    1  2 spread     7.671094 identico
+run_omp     110M    1  3 spread     7.686200 identico
+run_omp     110M    2  1 spread    14.495358 identico
+run_omp     110M    2  2 spread    14.462439 identico
+run_omp     110M    2  3 spread    14.452075 identico
+run_omp     110M    4  1 spread    27.581491 identico
+run_omp     110M    4  2 spread    27.635035 identico
+run_omp     110M    4  3 spread    27.628725 identico
+run_omp     110M    8  1 spread    45.199851 identico
+run_omp     110M    8  2 spread    45.065177 identico
+run_omp     110M    8  3 spread    45.132413 identico
+run_omp     110M   16  1 spread    55.581075 identico
+run_omp     110M   16  2 spread    55.632184 identico
+run_omp     110M   16  3 spread    55.415617 identico
+run_omp_mm  110M    1  1 spread     7.678883 identico
+run_omp_mm  110M    1  2 spread     7.683515 identico
+run_omp_mm  110M    1  3 spread     7.684247 identico
+run_omp_mm  110M    2  1 spread    14.258779 identico
+run_omp_mm  110M    2  2 spread    14.218566 identico
+run_omp_mm  110M    2  3 spread    14.207714 identico
+run_omp_mm  110M    4  1 spread    26.338703 identico
+run_omp_mm  110M    4  2 spread    26.210333 identico
+run_omp_mm  110M    4  3 spread    26.465442 identico
+run_omp_mm  110M    8  1 spread    40.781935 identico
+run_omp_mm  110M    8  2 spread    40.733883 identico
+run_omp_mm  110M    8  3 spread    40.414162 identico
+run_omp_mm  110M   16  1 spread    49.529267 identico
+run_omp_mm  110M   16  2 spread    49.407922 identico
+run_omp_mm  110M   16  3 spread    49.559697 identico
+=== 3. Disposizione dei thread: close (socket 0 prima) contro spread
+run_omp     110M    4  1 close     26.608026 identico
+triad: thread =  4  tempo migliore = 0.0370 s  banda = 25.91 GB/s
+run_omp     110M    8  1 close     47.265625 identico
+triad: thread =  8  tempo migliore = 0.0374 s  banda = 25.64 GB/s
+=== Riepilogo
+run con testo identico: 92
+run con testo diverso: 0
+[fbellina2@wilson es03]$ cat es03_omp.62659.err

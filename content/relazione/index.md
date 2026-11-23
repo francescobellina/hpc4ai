@@ -43,6 +43,7 @@ exercise are listed in its own section.
 |---|---|---|
 | 1 | macOS client, Apple M3 Pro (arm64) | Apple clang 21.0.0; Python 3.12.14, NumPy 2.5.3 |
 | 2 | WILSON, partition `lab4` (to be completed) | `GCC/13.2.0`, `OpenMPI/4.1.6` |
+| 3 | WILSON `wnode01` (serial), `wnode04` (OpenMP): 2 × Xeon E5-2650, 8 cores/socket | `GCC/13.2.0` |
 | 4 | WILSON `wnode25`: 2 × Xeon E5-2683 v4, 16 cores/socket | system `gcc` 11.5.0, `perf` 5.14.0 |
 | 5 | WILSON `wnode01`–`08`: 2 × Xeon E5-2650, 8 cores/socket | `GCC/13.2.0`, `OpenMPI/4.1.6`, `HPL/2.3`, `HPCG/3.1` |
 :::
@@ -169,7 +170,141 @@ check the program, not the placement.
 
 ## Exercise 3 — Tiny stories, many threads
 
-**To be completed.** The exercise has not been run yet.
+### Task and implementation
+
+`llama2.c` (`run.c`, supplied by the course) generates a story one token at a time.
+Every token is a forward pass that multiplies each weight matrix of the model by a
+vector, so each token reads all the weights once and performs one multiplication
+and one addition per weight. In the ideal case $p$ threads give $p$ times the
+speed, until together they ask for more data than the memory of the node can
+deliver. From then on the speed is capped at (node bandwidth) / (bytes per token).
+
+The profile of the serial program points at `matmul`. Each output row of
+`matmul` is an independent dot product, so the rows are shared among the threads
+with one `#pragma omp parallel for` (`run_omp_mm.c`). The attention heads are also
+independent: `run_omp.c` parallelizes their loop as well. The remaining parts of
+the forward pass (`rmsnorm`, RoPE, residuals, SwiGLU) are short loops and stay
+serial.
+
+```c
+#pragma omp parallel for private(i)
+for (i = 0; i < d; i++) {          // rows of xout are split among threads
+    float val = 0.0f;
+    for (int j = 0; j < n; j++) val += w[i * n + j] * x[j];
+    xout[i] = val;
+}
+```
+
+```bash
+module load GCC/13.2.0
+gcc -O3 -o run run.c -lm
+gcc -O3 -fopenmp -o run_omp run_omp.c -lm
+OMP_NUM_THREADS=$T OMP_PLACES=cores OMP_PROC_BIND=spread \
+    srun --ntasks=1 --cpus-per-task=16 --cpu-bind=cores \
+    ./run_omp stories110M.bin -t 0 -n 256 -i "Once upon a time"
+```
+
+All runs use one exclusive `sandy_bridge` node of partition `wilson`
+(2 × Xeon E5-2650, 8 cores per socket, 20 MiB of L3 per socket, two NUMA nodes),
+`--hint=nomultithread`, greedy decoding (`-t 0`), at most 256 steps and the prompt
+"Once upon a time". The stories end earlier with the end-of-sequence token, after
+222 steps (15M) and 243 steps (110M). The serial baseline ran on `wnode01`
+(job 61832) and the OpenMP runs on `wnode04` (job 62659). Every point is
+repeated 3 times; the spread between repetitions is below 1.3%, and 2.5% for 15M
+at 16 threads.
+
+### Validation
+
+With greedy decoding the three serial repetitions of each model print the same
+text, and all 92 OpenMP runs (1 to 16 threads, both versions, `spread` and
+`close`) print exactly the same text as the serial program (`cmp`). The result is
+bit-identical because the threads split the rows, not the sums inside a row: every
+dot product is summed by one thread in the serial order. All 96 job steps are
+`COMPLETED 0:0`. `sacct` reports the job itself as `FAILED 1:0`, but that comes
+from the last line of the script, a `grep -c` with zero matches under
+`set -o pipefail`: it signals that no text differed.
+
+### Results
+
+:::{table} Serial program (one core, `wnode01`) and weight bytes read per token from the model configuration. Effective bandwidth = tok/s × bytes per token.
+:name: r-tab-es03-serial
+
+| Model | tok/s (mean of 3) | `matmul` share (`gprof`, `-fno-inline`) | Weights read per token | Effective bandwidth |
+|---|---|---|---|---|
+| 15M | 58.50 | 96.85% | 60.77 MB | 3.55 GB/s |
+| 42M | 20.71 | — | 166.76 MB | 3.45 GB/s |
+| 110M | 7.81 | 97.61% | 438.12 MB | 3.42 GB/s |
+:::
+
+Even the smallest model is larger than the 40 MiB of L3 of the whole node, so the
+weights are read from memory at every token. The keys and values of the attention
+add 2–3% and are left out of the estimate. The STREAM triad kernel gives 12.65 GB/s
+on one core and 51.4 GB/s on the 16 cores of `wnode01`: the serial program uses
+only 27–28% of what one core can draw.
+
+:::{table} OpenMP scaling on `wnode04` (`spread`, mean of 3 runs): speedup against the serial program and effective bandwidth.
+:name: r-tab-es03-scaling
+
+| Threads | 15M $S_p$ | 42M $S_p$ | 110M $S_p$ | 110M $E_p$ | 110M GB/s | `run_omp_mm` 110M $S_p$ |
+|---|---|---|---|---|---|---|
+| 1 | 0.96 | 0.98 | 0.98 | 0.98 | 3.4 | 0.98 |
+| 2 | 1.80 | 1.84 | 1.85 | 0.93 | 6.3 | 1.82 |
+| 4 | 3.30 | 3.48 | 3.53 | 0.88 | 12.1 | 3.37 |
+| 8 | 4.92 | 5.43 | 5.78 | 0.72 | 19.8 | 5.20 |
+| 16 | 5.20 | 6.53 | 7.11 | 0.44 | 24.3 | 6.34 |
+:::
+
+:::{figure} ../esercizi/figures/es03-scaling.png
+:name: r-fig-es03-scaling
+:width: 90%
+
+Tokens per second (left) and speedup against the serial program (right) for the
+three models. Solid lines: `run_omp` (`matmul` and heads); dashed lines:
+`run_omp_mm` (`matmul` only).
+:::
+
+:::{figure} ../esercizi/figures/es03-banda.png
+:name: r-fig-es03-bandwidth
+:width: 90%
+
+Effective bandwidth of `run_omp` against the triad bandwidth of the node (open
+diamonds: `spread` on `wnode01`; filled diamonds: `close` on `wnode04`).
+:::
+
+### Discussion
+
+- **The serial program is not memory bound.** All three models read their weights
+  at the same 3.4–3.6 GB/s, a quarter of the single-core triad bandwidth. Without
+  `-ffast-math` the compiler must keep the floating-point sums of the dot product in
+  order, so every addition waits for the previous one. GCC 16 on the Mac vectorizes
+  only the multiplications and keeps an in-order reduction; this is a different
+  compiler and architecture from WILSON, but the ordering rule is the same. With
+  the 3-cycle latency of a `float` addition on Sandy Bridge (A. Fog, *Instruction
+  tables*), at most one weight is processed every 3 cycles, 3.7 GB/s at 2.8 GHz,
+  close to the measured value. The core frequency during these runs was not
+  measured. Each extra thread adds an independent chain of additions while the
+  memory still has spare bandwidth, which is why scaling is almost ideal up to
+  4 threads.
+- **The three models do not scale the same way.** At 16 threads the speedup is
+  5.2, 6.5 and 7.1. Each forward pass opens $7L+1$ or $8L+1$ parallel regions
+  ($L$ layers), and each region has a fixed cost for starting and synchronizing the
+  threads. The 15M model has the least work per region: at 16 threads a region
+  lasts 67 µs on average, about as long as at 8 threads (71 µs), and 15M gains only
+  5.7% from 8 to 16 threads.
+- **The memory bandwidth is not the limit either.** At 16 threads the 110M model
+  reads 24.3 GB/s, 47% of the node's triad bandwidth, and the bandwidth per thread
+  falls from 3.4 to 1.5 GB/s. With 8 threads packed on one socket (`close`,
+  single run) the 110M model is 4.7% faster than with `spread`, although triad
+  gives only 25.6 GB/s on one socket. Amdahl's law with the serial share of the
+  profile would allow a speedup of 11.8 at 16 threads for `run_omp_mm`, against
+  6.3 measured. The Karp–Flatt serial fraction grows from 0.06 at 4 threads to
+  0.10 at 16, so the loss grows with the number of threads. Compatible causes that
+  were not measured separately are the barriers of the parallel regions, the lower
+  clock with all cores active (2.40 GHz measured in Exercise 5) and the NUMA
+  placement of the `mmap`-ed weights, which sit wherever the page cache put them.
+- **Parallelizing the attention heads** adds 4%, 6% and 12% at 16 threads. The
+  attention takes at most 1.6–2.3% of the serial time, but that serial share
+  matters more and more as the rest speeds up.
 
 ## Exercise 4 — Profiling and optimizing data preparation
 
@@ -410,7 +545,7 @@ reductions).
 |---|---|---|
 | 1 — Basel | `float32` direct sum stalls at $\Delta = 2.09 \times 10^{-4}$; reverse order reaches $\approx 9 \times 10^{-9}$ | passed (macOS client) |
 | 2 — Parallel Hello | $P \times T$ lines in every layout; one physical core per thread in the Slurm runs | 13/13 checks, 3 jobs `COMPLETED 0:0` |
-| 3 — Tiny stories | — | not run |
+| 3 — Tiny stories | serial 58.5 / 20.7 / 7.8 tok/s, weights read at 3.4 GB/s; OpenMP speedup at 16 threads 5.2 / 6.5 / 7.1, at most 24.3 of 51.4 GB/s | identical text in 92/92 runs |
 | 4 — Profiling | loop swap: 3.83× overall, 10.3× on the hotspot; IPC from 0.52 to 2.12 | passed, bit-identical checksums |
 | 5 — HPL/HPCG | one node: HPL 85–87% of peak, HPCG 2.8%; eight nodes: HPL 1144 GFLOP/s (47%), HPCG 44.6 GFLOP/s (1.8%) | 36 HPL `PASSED`, 21 HPCG `VALID` |
 :::
@@ -427,5 +562,6 @@ memory bandwidth rather than by the floating-point units.
 |---|---|---|
 | 1 | `codes/exec1/` | `basel_naive.c` |
 | 2 | `codes/exec2/` | OpenMP and hybrid programs, Slurm scripts, `checks.sh` |
+| 3 | `codes/exec3/` | `run.c` (course), `run_omp.c`, `run_omp_mm.c`, `config.c`, `triad.c`, `es03.sh`, `omp_job.sh`, `analyze_es03.py` |
 | 4 | `codes/exec4/` | `preprocess.c`, `preprocess_rows.c`, `es04_all.sh` (job used for all measurements) |
 | 5 | `codes/exec5/` | `es05.sh` (setup, runs, collection on WILSON), `analyze_es05.py` (tables and figures) |

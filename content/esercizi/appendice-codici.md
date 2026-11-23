@@ -9,6 +9,7 @@ discussione.
 |---|---|---|
 | 1 — Problema di Basilea | [`codes/exec1/`](../../codes/exec1/README.md) | `basel_naive.c` — somma parziale di $\zeta(2)$, ordine e precisione a runtime |
 | 2 — Parallel Hello, World! | [`codes/exec2/`](../../codes/exec2/README.md) | programmi a memoria condivisa (OpenMP) e ibrido (MPI + OpenMP); script Slurm |
+| 3 — Tiny stories, many threads | [`codes/exec3/`](../../codes/exec3/README.md) | `run.c` del corso, `run_omp.c` e `run_omp_mm.c` (OpenMP), `config.c`, `triad.c`, `es03.sh` e `omp_job.sh` (job su WILSON), `analyze_es03.py` (tabelle e figure dai log in `results/es03/`) |
 | 4 — Profiling e ottimizzazione | [`codes/exec4/`](../../codes/exec4/README.md) | `preprocess.c` originale, `preprocess_rows.c` con i cicli di `compute_statistics` scambiati, `es04_all.sh` che riproduce tutte le misure in un job Slurm (log in `results/es04/`) |
 | 5 — HPL e HPCG | [`codes/exec5/`](../../codes/exec5/README.md) | `es05.sh` (setup, serie di run, raccolta su WILSON) e `analyze_es05.py` (tabelle e figure dai log in `results/es05/`) |
 
