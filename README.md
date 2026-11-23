@@ -1,5 +1,17 @@
 # High-Performance Computing for AI Applications in Physics
 
+**[📖 Apri il libro nel browser — https://francescobellina.github.io/hpc4ai/](https://francescobellina.github.io/hpc4ai/)**
+
+Il Jupyter Book completo (teoria, esercizi, relazione), già compilato: non serve
+lanciarlo da VS Code. GitHub Actions lo ricompila e lo pubblica su GitHub Pages a ogni
+push su `main` (workflow `deploy.yml`), quindi il sito segue l'ultimo commit dopo circa
+un minuto. Pagine utili:
+[Esercizi](https://francescobellina.github.io/hpc4ai/content/esercizi) ·
+[Riepilogo dei risultati](https://francescobellina.github.io/hpc4ai/content/esercizi/riepilogo) ·
+[Relazione (EN)](https://francescobellina.github.io/hpc4ai/content/relazione).
+
+Anteprima locale, solo per lavorare sulle pagine:
+
 ```text
 uv run --python .venv/bin/python jupyter book start
 ```
@@ -248,11 +260,8 @@ The repository contains CI and deployment workflows. After pushing the repositor
 to GitHub, enable **Settings -> Pages -> GitHub Actions**. Deployment is triggered
 by pushes to `main`.
 
-For this repository the expected project-site path is:
-
-```text
-https://francescobellina.github.io/hpc4ai/
-```
+The site is live at <https://francescobellina.github.io/hpc4ai/> and is redeployed
+by `deploy.yml` at every push to `main`.
 
 ## Security
 
