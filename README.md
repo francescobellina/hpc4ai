@@ -1,6 +1,6 @@
 # High-Performance Computing for AI Applications in Physics
 
-**[📖 Apri il libro nel browser — https://francescobellina.github.io/hpc4ai/](https://francescobellina.github.io/hpc4ai/)**
+**[📖 Apri il libro nel browser (CURRENTLY IN ITALIAN; ENGLISH VERSION WILL BE UPDATE SOON) — https://francescobellina.github.io/hpc4ai/](https://francescobellina.github.io/hpc4ai/)**
 
 Il Jupyter Book completo (teoria, esercizi, relazione), già compilato: non serve
 lanciarlo da VS Code. GitHub Actions lo ricompila e lo pubblica su GitHub Pages a ogni
